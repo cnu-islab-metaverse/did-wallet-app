@@ -43,8 +43,9 @@ body.dark,
 /* Network Selector Styles */
 .network-selector {
   position: relative;
-  min-width: 160px;
+  min-width: 100px;
   max-width: 200px;
+  flex-shrink: 0;
 }
 
 .network-current {
@@ -58,6 +59,8 @@ body.dark,
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 13px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .network-current:hover {
@@ -70,6 +73,7 @@ body.dark,
 }
 
 .network-name {
+  max-width: 70%;
   font-weight: 500;
   color: var(--text-primary);
   margin-bottom: 1px;
@@ -80,6 +84,7 @@ body.dark,
 }
 
 .network-chain {
+  max-width: 70%;
   font-size: 9px;
   color: var(--text-muted);
 }
@@ -95,16 +100,12 @@ body.dark,
 }
 
 .network-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
+  position: fixed;
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   border-radius: 6px;
   box-shadow: var(--shadow);
   z-index: 100;
-  margin-top: 2px;
   max-height: 280px;
   overflow-y: auto;
   min-width: 220px;

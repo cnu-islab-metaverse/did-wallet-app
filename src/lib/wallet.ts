@@ -1,6 +1,6 @@
 import type { JsonRpcProvider } from 'ethers'
-import { Wallet, JsonRpcProvider as EthersJsonRpcProvider, type HDNodeWallet } from 'ethers'
-import { DEV_CONFIG, isDevModeEnabled } from '../config/dev.config'
+import { Wallet, JsonRpcProvider as EthersJsonRpcProvider, HDNodeWallet, Mnemonic } from 'ethers'
+import { DEV_CONFIG, isDevModeEnabled } from '../config'
 import { STORAGE_KEYS } from '../config/storage'
 import { storageAdapter } from './storageAdapter'
 import { validatePassword, validateMnemonic, validatePrivateKey, validateWalletConfig } from './validation'
@@ -16,6 +16,7 @@ export interface StoredState {
   address?: string
   selectedNetwork?: SupportedNetwork
   walletType?: WalletType
+  hdInitialized?: boolean
 }
 
 const STORAGE_KEY = STORAGE_KEYS.walletState
@@ -132,9 +133,22 @@ export async function createAndStoreWallet(password: string) {
   await writeStoredState({ 
     keystoreJson, 
     address: wallet.address, 
-    walletType: 'mnemonic' // 새로 생성된 지갑은 니모닉 기반
+    walletType: 'mnemonic', // 새로 생성된 지갑은 니모닉 기반
+    hdInitialized: false,
   })
   runtimeWallet = wallet
+  // Try initializing HD wallet immediately
+  try {
+    if ('mnemonic' in wallet && (wallet as any).mnemonic) {
+      const mnemonic = (wallet as any).mnemonic.phrase as string
+      const ok = await hdWalletService.initializeFromMnemonic(mnemonic, password)
+      if (ok) {
+        await writeStoredState({ hdInitialized: true })
+      }
+    }
+  } catch (e) {
+    console.warn('HD wallet init after create failed:', e)
+  }
   return wallet.address
 }
 
@@ -146,7 +160,8 @@ export async function storeWalletWithPassword(wallet: Wallet | HDNodeWallet, pas
   }
   
   const keystoreJson = await wallet.encrypt(password)
-  await writeStoredState({ keystoreJson, address: wallet.address })
+  const inferredType: WalletType = ('mnemonic' in wallet && (wallet as any).mnemonic) ? 'mnemonic' : 'privateKey'
+  await writeStoredState({ keystoreJson, address: wallet.address, walletType: inferredType })
   runtimeWallet = wallet
   return wallet.address
 }
@@ -158,12 +173,21 @@ export async function unlockWithPassword(password: string): Promise<string> {
   const wallet = await Wallet.fromEncryptedJson(keystoreJson, password)
   const addr = wallet.address
   runtimeWallet = wallet.connect(getProvider()) as Wallet | HDNodeWallet
+  // Ensure walletType is persisted for older states
+  if (!walletType) {
+    const inferredType: WalletType = ('mnemonic' in wallet && (wallet as any).mnemonic) ? 'mnemonic' : 'privateKey'
+    await writeStoredState({ walletType: inferredType })
+  }
   
   // 니모닉 기반 지갑인 경우 HD 지갑 서비스 초기화
-  if (walletType === 'mnemonic' && 'mnemonic' in wallet && wallet.mnemonic) {
+  const effectiveType = walletType ?? (("mnemonic" in wallet && (wallet as any).mnemonic) ? 'mnemonic' : 'privateKey')
+  if (effectiveType === 'mnemonic' && 'mnemonic' in wallet && wallet.mnemonic) {
     try {
       const mnemonic = wallet.mnemonic.phrase
-      await hdWalletService.initializeFromMnemonic(mnemonic, password)
+      const ok = await hdWalletService.initializeFromMnemonic(mnemonic, password)
+      if (ok) {
+        await writeStoredState({ hdInitialized: true })
+      }
     } catch (error) {
       console.warn('Failed to initialize HD wallet service:', error)
     }
@@ -202,14 +226,29 @@ export async function importWalletFromMnemonic(mnemonic: string, password: strin
     throw new Error(mnemonicValidation.error)
   }
   
-  const wallet = Wallet.fromPhrase(mnemonic.trim().toLowerCase())
+  // Use MetaMask-compatible BIP44 path: m/44'/60'/0'/0/0 (first account)
+  // Use Mnemonic to get seed, then create HDNodeWallet from seed to specify exact path
+  const mnemonicObj = Mnemonic.fromPhrase(mnemonic.trim().toLowerCase())
+  const seed = mnemonicObj.computeSeed()
+  const rootNode = HDNodeWallet.fromSeed(seed)
+  const wallet = rootNode.derivePath("m/44'/60'/0'/0/0")
   const keystoreJson = await wallet.encrypt(password)
   await writeStoredState({ 
     keystoreJson, 
     address: wallet.address, 
-    walletType: 'mnemonic' 
+    walletType: 'mnemonic',
+    hdInitialized: false,
   })
   runtimeWallet = wallet
+  // Initialize HD wallet from provided mnemonic
+  try {
+    const ok = await hdWalletService.initializeFromMnemonic(mnemonic.trim().toLowerCase(), password)
+    if (ok) {
+      await writeStoredState({ hdInitialized: true })
+    }
+  } catch (e) {
+    console.warn('HD wallet init after import failed:', e)
+  }
   return wallet.address
 }
 
@@ -249,10 +288,16 @@ export async function initDevWallet() {
     }
     
     // Create wallet from dev mnemonic or private key
+    // Use MetaMask-compatible BIP44 path: m/44'/60'/0'/0/0 (first account)
     let wallet: Wallet | HDNodeWallet
     if ('mnemonic' in DEV_CONFIG.wallet) {
-      wallet = Wallet.fromPhrase((DEV_CONFIG.wallet as {mnemonic: string}).mnemonic)
-      console.log('🔧 Dev mode: Wallet created from mnemonic')
+      // Use Mnemonic to get seed, then create HDNodeWallet from seed to specify exact path
+      const mnemonicObj = Mnemonic.fromPhrase((DEV_CONFIG.wallet as {mnemonic: string}).mnemonic.trim().toLowerCase())
+      const seed = mnemonicObj.computeSeed()
+      const rootNode = HDNodeWallet.fromSeed(seed)
+      // MetaMask uses m/44'/60'/0'/0/0 for the first account
+      wallet = rootNode.derivePath("m/44'/60'/0'/0/0")
+      console.log('🔧 Dev mode: Wallet created from mnemonic (MetaMask path: m/44\'/60\'/0\'/0/0)')
     } else if (DEV_CONFIG.wallet.privateKey) {
       const cleanKey = DEV_CONFIG.wallet.privateKey.startsWith('0x') 
         ? DEV_CONFIG.wallet.privateKey 
@@ -356,6 +401,17 @@ export async function createNewAccount(name?: string, password?: string): Promis
  */
 export function isHDWalletInitialized(): boolean {
   return hdWalletService.isInitialized();
+}
+
+/**
+ * Read minimal wallet meta information persisted in storage.
+ */
+export async function getWalletMeta(): Promise<{ walletType: WalletType | null; hdInitialized: boolean }>{
+  const state = await readStoredState();
+  return {
+    walletType: state.walletType ?? null,
+    hdInitialized: !!state.hdInitialized,
+  };
 }
 
 /**

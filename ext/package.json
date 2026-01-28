@@ -40,10 +40,7 @@
     "postinstall": "pnpm copy-env"
   },
   "dependencies": {
-    "@metamask/base-controller": "^8.4.0",
     "@metamask/browser-passworder": "^6.0.0",
-    "@metamask/keyring-controller": "^23.1.0",
-    "@metamask/network-controller": "^24.2.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

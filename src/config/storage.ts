@@ -7,5 +7,3 @@ export const STORAGE_KEYS = {
   theme: 'theme',
   lastActiveTab: 'last_tab',
 } as const;
-
-

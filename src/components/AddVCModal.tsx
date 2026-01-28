@@ -37,6 +37,7 @@ export const AddVCModal: React.FC<AddVCModalProps> = ({ onClose, onAddVC }) => {
       // 1. 형식 검증
       const formatValidation = validateVCFormat(vcInput.trim());
       if (!formatValidation.isValid) {
+        setVerificationResult(null);
         setError(formatValidation.error || '유효하지 않은 VC 형식입니다');
         setIsVerifying(false);
         return;
@@ -44,17 +45,19 @@ export const AddVCModal: React.FC<AddVCModalProps> = ({ onClose, onAddVC }) => {
 
       // 2. 서명 검증
       const verification = await verifyVC(vcInput.trim());
-      setVerificationResult(verification);
 
       if (verification.isValid) {
+        setVerificationResult(verification);
         // 검증 성공 시 VC 추가 (경고가 있어도 성공으로 처리)
         const vc = formatValidation.vc!;
         onAddVC(vc);
         onClose();
       } else {
+        setVerificationResult(null); // 오류 박스만 출력하도록 중복 표시 방지
         setError(`VC 검증 실패: ${verification.errors.join(', ')}`);
       }
     } catch (err: any) {
+      setVerificationResult(null);
       setError(`검증 중 오류 발생: ${err.message}`);
     } finally {
       setIsVerifying(false);
@@ -105,7 +108,7 @@ export const AddVCModal: React.FC<AddVCModalProps> = ({ onClose, onAddVC }) => {
             </div>
           )}
 
-          {verificationResult && (
+          {verificationResult && (verificationResult.isValid || verificationResult.warnings.length > 0) && (
             <div className={`verification-result ${verificationResult.isValid ? 'valid' : 'invalid'}`}>
               <div className="verification-header">
                 <div className="verification-icon">
@@ -116,16 +119,7 @@ export const AddVCModal: React.FC<AddVCModalProps> = ({ onClose, onAddVC }) => {
                 </div>
               </div>
               
-              {verificationResult.errors.length > 0 && (
-                <div className="verification-errors">
-                  <h4>오류:</h4>
-                  <ul>
-                    {verificationResult.errors.map((error: string, index: number) => (
-                      <li key={index}>{error}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              {/* 에러는 상단 에러박스로만 보여주고, 여기서는 중복 표시하지 않음 */}
               
               {verificationResult.warnings.length > 0 && (
                 <div className="verification-warnings">

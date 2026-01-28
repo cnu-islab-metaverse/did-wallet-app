@@ -8,13 +8,8 @@ export interface VCVerificationResult {
   verificationMethod?: string;
 }
 
-const ISSUER_PUBLIC_KEY = {
-  Ax: "13277427435165878497778222415993513565335242147425444199013288855685581939618",
-  Ay: "13622229784656158136036771217484571176836296686641868549125388198837476602820"
-};
-
-const ISSUER_SECRET = 'vc-issuer-secret';
-const TRUSTED_ISSUER = 'https://infosec.chungnam.ac.kr';
+// NOTE: Issuer-web uses issuer id below and 'issuer-web-secret' for deterministic signature
+const TRUSTED_ISSUER = 'https://gov.example.kr/moi';
 
 // JSON canonicalization (발급자와 동일한 방식)
 function canonicalize(value: any): string {
@@ -57,22 +52,17 @@ async function hmac(key: string, data: string): Promise<string> {
   }
 }
 
-// Merkle Root 계산 (발급자와 동일한 방식)
+// Merkle Root 계산 (발급자와 동일한 방식: JSON.stringify 원문 기반)
 async function computeMerkleRoot(vc: any): Promise<string> {
-  const canonical = canonicalize(vc);
-  console.log('🔍 Canonical VC:', canonical);
-  
-  const hash = await sha256(canonical);
-  console.log('🔍 Computed Merkle Root:', hash);
-  
+  const json = JSON.stringify(vc);
+  const hash = await sha256(json);
   return hash;
 }
 
-// Deterministic signature 생성
-async function generateSignature(root: string): Promise<{ R8x: string, R8y: string, S: string }> {
-  const h1 = await hmac(ISSUER_SECRET, root + ISSUER_PUBLIC_KEY.Ax);
-  const h2 = await hmac(ISSUER_SECRET + ':S', root + ISSUER_PUBLIC_KEY.Ay);
-  
+// Deterministic signature 생성 (issuer-web과 동일 로직)
+async function generateSignature(root: string, Ax: string, Ay: string, secret: string): Promise<{ R8x: string, R8y: string, S: string }> {
+  const h1 = await hmac(secret, root + Ax);
+  const h2 = await hmac(secret + ':S', root + Ay);
   return {
     R8x: BigInt('0x' + h1.slice(0, 32)).toString(),
     R8y: BigInt('0x' + h1.slice(32, 64)).toString(),
@@ -102,7 +92,10 @@ async function verifySignature(vc: any, signature: any): Promise<boolean> {
     return false;
   }
   
-  const expectedSignature = await generateSignature(computedRoot);
+  // issuer-web: use issuer's publicKey fields and shared secret
+  const Ax = vc.issuer?.publicKey?.Ax ?? '';
+  const Ay = vc.issuer?.publicKey?.Ay ?? '';
+  const expectedSignature = await generateSignature(computedRoot, Ax, Ay, 'issuer-web-secret');
   console.log('🔍 서명 비교:');
   console.log('  - 예상 서명:', expectedSignature);
   console.log('  - 실제 서명:', signature);
@@ -231,7 +224,8 @@ export async function verifyVC(vc: VerifiableCredential | string, currentWalletA
       return result;
     }
 
-    result.issuerPublicKey = ISSUER_PUBLIC_KEY;
+    // 발급자가 포함한 공개키를 그대로 노출 (고정 상수 제거)
+    result.issuerPublicKey = vcData.issuer?.publicKey;
     result.verificationMethod = vcData.proof.verificationMethod;
     return result;
 

@@ -1,0 +1,33 @@
+{
+  "terminal.integrated.defaultProfile.windows": "Command Prompt",
+  "task.runOnFolderOpen": "default",
+  "task.quickOpen.history": 0,
+  "task.autoDetect": "off",
+  "terminal.integrated.tabs.enabled": true,
+  "terminal.integrated.enablePersistentSessions": true,
+  "terminal.integrated.persistentSessionReviveProcess": "never",
+  "terminal.integrated.defaultLocation": "panel",
+  "files.autoSave": "onFocusChange"
+}
+
+{
+  "typescript.preferences.includePackageJsonAutoImports": "on",
+  "typescript.suggest.autoImports": true,
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "eslint.workingDirectories": [
+    "src",
+    "desktop",
+    "ext"
+  ],
+  "typescript.preferences.includePackageJsonAutoImports": "auto",
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.turbo": true
+  },
+  "files.associations": {
+    "*.css": "css",
+    "*.tsx": "typescriptreact",
+    "*.ts": "typescript"
+  }
+}

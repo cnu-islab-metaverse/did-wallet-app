@@ -1,0 +1,68 @@
+{
+  // Auto-run dev servers in separate terminals when the workspace opens
+  "$schema": "https://raw.githubusercontent.com/microsoft/vscode/master/src/vs/workbench/contrib/tasks/common/tasks.schema.json",
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Dev: Issuer",
+      "type": "shell",
+      "command": "npm run dev:issuer",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "new" }
+    },
+    {
+      "label": "Dev: Metaverse",
+      "type": "shell",
+      "command": "npm run dev:metaverse",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "new" }
+    },
+    {
+      "label": "Dev: Desktop",
+      "type": "shell",
+      "command": "npm run dev:desktop",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "new" }
+    },
+    {
+      "label": "Dev: Extension",
+      "type": "shell",
+      "command": "npm run dev:ext",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "new" }
+    },
+    {
+      "label": "Dev: Verifier",
+      "type": "shell",
+      "command": "npm run dev:verifier",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "new" }
+    },
+    {
+      "label": "Dev: All (auto)",
+      "dependsOn": [
+        "Dev: Issuer",
+        "Dev: Metaverse",
+        "Dev: Desktop",
+        "Dev: Extension",
+        "Dev: Verifier"
+      ],
+      "dependsOrder": "parallel",
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    }
+  ]
+}
+
+

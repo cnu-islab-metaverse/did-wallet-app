@@ -1,9 +1,5 @@
-function isChromeStorageAvailable(): boolean {
-  try {
-    // @ts-ignore
-    return typeof chrome !== 'undefined' && !!chrome.storage?.local
-  } catch { return false }
-}
+import { isChromeStorageAvailable } from '../utils/platform';
+
 
 // IndexedDB fallback (Chromium uses LevelDB under the hood)
 const DB_NAME = 'did_wallet_db'

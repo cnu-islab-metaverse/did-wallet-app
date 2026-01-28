@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>신분증e발급</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="gov-topbar">
+      <div class="gov-topbar__inner">
+        <img src="/assets/gov-logo.svg" alt="GOV" class="gov-logo" />
+        <div class="gov-brand">
+          <div class="gov-brand__title">인증24</div>
+          <div class="gov-brand__subtitle">주민등록증 · 외국인등록증 VC 발급</div>
+        </div>
+      </div>
+    </div>
+
+    <main class="container">
+      <header class="page-header">
+        <h1>신분증e발급</h1>
+        <p class="subtitle">
+          <br>
+          <strong>VC(Verifiable Credential)</strong>란, 증명기관(발급자)이 발급한 전자 신원증명서를 안전하게 저장하고, 필요한 정보만 선별적으로 제출할 수 있도록 지원하는 디지털 인증 기술입니다.
+          <br><br>
+          이 서비스는 <strong>주민등록증·외국인등록증</strong> 기반으로 디지털 신분증(VC)을 쉽고 안전하게 발급해 드립니다. 발급받은 신분증은 본인의 지갑 프로그램에 등록하여, 다양한 온라인·오프라인 서비스에서 신원 확인 용도로 활용할 수 있습니다.</p>
+      </header>
+
+      <section class="panel">
+        <div class="input-group">
+          <div class="field">
+            <label for="name">성명</label>
+            <input id="name" value="홍길동" />
+          </div>
+          <div class="field">
+            <label for="birth">생년월일</label>
+            <input id="birth" maxlength="10" value="1990-05-02" />
+          </div>
+          <div class="field">
+            <label for="rrnSuffix">주민등록번호 뒤 1자리</label>
+            <input id="rrnSuffix" maxlength="1" value="1" />
+          </div>
+          <button id="verifyBtn" class="primary-btn">주민등록정보 조회</button>
+        </div>
+      </section>
+
+      <section id="idSection" class="idcard-panel" style="display: none;">
+        <div class="idcard">
+          <div class="idcard-header">
+            <h2>주민등록증</h2>
+            <div class="issuer-name">행정안전부</div>
+          </div>
+
+          <div class="idcard-content">
+            <div class="profile-section">
+              <img id="profileImage" src="" alt="프로필 사진" class="profile-img person-info" />
+              <div class="person-info-grid">
+                <div class="info-row">
+                  <span class="label">성명:</span>
+                  <span id="residentName" class="value person-info"></span>
+                </div>
+                <div class="info-row">
+                  <span class="label">생년월일:</span>
+                  <span id="residentBirth" class="value person-info"></span>
+                </div>
+                <div class="info-row">
+                  <span class="label">주소:</span>
+                  <span id="residentAddress" class="value person-info"></span>
+                </div>
+                <div class="info-row">
+                  <span class="label">주민등록번호:</span>
+                  <span id="rrnMasked" class="value person-info"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="idcard-footer">
+            <div class="issue-date">발급일: <span id="idIssueDate"></span></div>
+            <div class="issuer">장관 직인</div>
+          </div>
+        </div>
+
+        <div class="vc-section">
+          <h3>신원 VC 발급</h3>
+          <div class="vc-input-group">
+            <input id="walletAddress" placeholder="지갑 주소 (0x...)" />
+            <button id="genAddrBtn" class="vc-btn" type="button">지갑 연결</button>
+            <button id="issueBtn" class="vc-btn" type="button">VC 발급(지갑에 등록)</button>
+          </div>
+          <div id="vcResult" class="vc-result"></div>
+        </div>
+      </section>
+
+      <div id="errorMessage" class="error-panel" style="display: none;"></div>
+    </main>
+
+    <script src="/main.js"></script>
+  </body>
+  </html>
+
+

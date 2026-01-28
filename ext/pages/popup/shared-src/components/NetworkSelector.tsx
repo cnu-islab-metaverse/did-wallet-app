@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { networkService } from '../lib/networkService';
 import { NetworkConfig } from '../types/network';
 import { AddNetworkModal } from './AddNetworkModal';
@@ -15,6 +15,8 @@ export const NetworkSelector = ({ onNetworkChange, forceClose, onDropdownOpen }:
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editTarget, setEditTarget] = useState<NetworkConfig | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const buttonRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadNetworks();
@@ -27,6 +29,17 @@ export const NetworkSelector = ({ onNetworkChange, forceClose, onDropdownOpen }:
       setShowAddModal(false);
     }
   }, [forceClose]);
+
+  useEffect(() => {
+    if (isDropdownOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 2,
+        left: rect.left,
+        width: rect.width
+      });
+    }
+  }, [isDropdownOpen]);
 
   const loadNetworks = () => {
     setNetworks(networkService.getNetworks());
@@ -83,13 +96,17 @@ export const NetworkSelector = ({ onNetworkChange, forceClose, onDropdownOpen }:
 
   return (
     <div className="network-selector">
-      <div className="network-current" onClick={() => {
+      <div 
+        ref={buttonRef}
+        className="network-current" 
+        onClick={() => {
         const newState = !isDropdownOpen;
         setIsDropdownOpen(newState);
         if (newState && onDropdownOpen) {
           onDropdownOpen(); // Notify parent to close other dropdowns
         }
-      }}>
+        }}
+      >
         <div className="network-info">
           <div className="network-name">{currentNetwork?.name || 'No Network'}</div>
           <div className="network-chain">Chain ID: {currentNetwork?.chainId || 'N/A'}</div>
@@ -98,7 +115,14 @@ export const NetworkSelector = ({ onNetworkChange, forceClose, onDropdownOpen }:
       </div>
 
       {isDropdownOpen && (
-        <div className="network-dropdown">
+        <div 
+          className="network-dropdown"
+          style={{
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            minWidth: `${dropdownPosition.width}px`
+          }}
+        >
           <div className="network-list">
             {networks.map((network: NetworkConfig) => (
               <div

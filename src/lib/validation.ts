@@ -1,4 +1,4 @@
-import { isAddress, Wallet } from 'ethers'
+import { isAddress, Wallet, HDNodeWallet, Mnemonic } from 'ethers'
 
 export interface ValidationResult {
   isValid: boolean
@@ -84,16 +84,35 @@ export function validateMnemonic(mnemonic: string, expectedAddress?: string): Va
     }
     
     // Create wallet from mnemonic to validate
-    const wallet = Wallet.fromPhrase(cleanMnemonic)
+    // Use Mnemonic to get seed, then create HDNodeWallet from seed to specify exact path
+    const mnemonicObj = Mnemonic.fromPhrase(cleanMnemonic)
+    const seed = mnemonicObj.computeSeed()
+    const rootNode = HDNodeWallet.fromSeed(seed)
     
-    // If expected address is provided, verify it matches
-    if (expectedAddress && wallet.address.toLowerCase() !== expectedAddress.toLowerCase()) {
-      return { isValid: false, error: '니모닉과 주소가 일치하지 않습니다.' }
+    if (expectedAddress) {
+      // Try accounts 0-9 to find matching address using MetaMask path m/44'/60'/0'/0/{index}
+      let found = false
+      for (let i = 0; i < 10; i++) {
+        const wallet = rootNode.derivePath(`m/44'/60'/0'/0/${i}`)
+        if (wallet.address.toLowerCase() === expectedAddress.toLowerCase()) {
+          found = true
+          break
+        }
+      }
+      
+      if (!found) {
+        return { isValid: false, error: '니모닉에서 유도된 주소(0~9번 계정)와 입력된 주소가 일치하지 않습니다.' }
+      }
     }
+    // If no expected address, just validate the mnemonic format
+    // (the mnemonic is valid if Mnemonic.fromPhrase succeeds)
     
     return { isValid: true }
-  } catch (error) {
-    return { isValid: false, error: '올바르지 않은 니모닉 구문입니다.' }
+  } catch (error: any) {
+    // Provide more detailed error message for debugging
+    const errorMsg = error?.message || String(error)
+    console.error('Mnemonic validation error:', errorMsg)
+    return { isValid: false, error: `올바르지 않은 니모닉 구문입니다. (${errorMsg})` }
   }
 }
 
@@ -140,17 +159,31 @@ export function validateWalletConfig(config: {
   }
   
   // If both mnemonic and privateKey are provided, ensure they match
+  // Try up to 10 accounts (m/44'/60'/0'/0/0 to m/44'/60'/0'/0/9) to find matching private key
   if (config.mnemonic && config.privateKey) {
     try {
-      const walletFromMnemonic = Wallet.fromPhrase(config.mnemonic.trim().toLowerCase())
-      const expectedPrivateKey = walletFromMnemonic.privateKey
+      const cleanMnemonic = config.mnemonic.trim().toLowerCase()
+      const mnemonic = Mnemonic.fromPhrase(cleanMnemonic)
+      const seed = mnemonic.computeSeed()
+      const rootNode = HDNodeWallet.fromSeed(seed)
       const cleanPrivateKey = config.privateKey.startsWith('0x') ? config.privateKey : `0x${config.privateKey}`
       
-      if (expectedPrivateKey.toLowerCase() !== cleanPrivateKey.toLowerCase()) {
-        return { isValid: false, error: '니모닉에서 유도된 개인키와 입력된 개인키가 일치하지 않습니다.' }
+      // Try accounts 0-9 to find matching private key using MetaMask path
+      let found = false
+      for (let i = 0; i < 10; i++) {
+        const walletFromMnemonic = rootNode.derivePath(`m/44'/60'/0'/0/${i}`)
+        if (walletFromMnemonic.privateKey.toLowerCase() === cleanPrivateKey.toLowerCase()) {
+          found = true
+          break
+        }
       }
-    } catch (error) {
-      return { isValid: false, error: '니모닉과 개인키 일치 여부를 확인할 수 없습니다.' }
+      
+      if (!found) {
+        return { isValid: false, error: '니모닉에서 유도된 개인키(0~9번 계정)와 입력된 개인키가 일치하지 않습니다.' }
+      }
+    } catch (error: any) {
+      const errorMsg = error?.message || String(error)
+      return { isValid: false, error: `니모닉과 개인키 일치 여부를 확인할 수 없습니다. (${errorMsg})` }
     }
   }
   

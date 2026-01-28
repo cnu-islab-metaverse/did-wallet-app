@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { WalletAccount } from '../types/hdWallet';
 import { hdWalletService } from '../lib/hdWalletService';
 import { toastManager } from '../utils/toast';
+import { getWalletMeta } from '../lib/wallet';
 
 interface AccountManagerProps {
   isOpen: boolean;
@@ -11,7 +12,6 @@ interface AccountManagerProps {
 }
 
 export const AccountManager: React.FC<AccountManagerProps> = ({ isOpen, onClose, onAccountChange, walletType }: AccountManagerProps) => {
-  console.log('AccountManager rendered:', { isOpen, walletType, hdInitialized: hdWalletService.isInitialized() });
   const [accounts, setAccounts] = useState<WalletAccount[]>([]);
   const [activeAccount, setActiveAccount] = useState<WalletAccount | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -19,21 +19,25 @@ export const AccountManager: React.FC<AccountManagerProps> = ({ isOpen, onClose,
   const [editingAccount, setEditingAccount] = useState<WalletAccount | null>(null);
   const [newAccountName, setNewAccountName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [hdReady, setHdReady] = useState<boolean>(hdWalletService.isInitialized());
 
   useEffect(() => {
-    if (isOpen) {
-      loadAccounts();
-    }
+    if (!isOpen) return;
+    (async () => {
+      const meta = await getWalletMeta();
+      setHdReady(meta.hdInitialized || hdWalletService.isInitialized());
+      loadAccounts(meta.hdInitialized || hdWalletService.isInitialized());
+    })();
   }, [isOpen]);
 
-  const loadAccounts = () => {
-    if (hdWalletService.isInitialized()) {
+  const loadAccounts = (initialized?: boolean) => {
+    const ok = typeof initialized === 'boolean' ? initialized : hdWalletService.isInitialized();
+    if (ok) {
       const allAccounts = hdWalletService.getAccounts();
       const currentActive = hdWalletService.getActiveAccount();
       setAccounts(allAccounts);
       setActiveAccount(currentActive);
     } else {
-      // HD 지갑이 초기화되지 않은 경우 기본 계정 표시
       setAccounts([]);
       setActiveAccount(null);
     }
@@ -47,13 +51,10 @@ export const AccountManager: React.FC<AccountManagerProps> = ({ isOpen, onClose,
 
     setIsLoading(true);
     try {
-      // For now, we'll use a placeholder password - in real implementation, 
-      // this should prompt for password or use stored session
       const result = await hdWalletService.createAccount(newAccountName.trim(), '');
-      
       if (result.success) {
         toastManager.show('새 계정이 생성되었습니다.');
-        loadAccounts();
+        loadAccounts(true);
         setShowAddModal(false);
         setNewAccountName('');
       } else {
@@ -74,10 +75,9 @@ export const AccountManager: React.FC<AccountManagerProps> = ({ isOpen, onClose,
     setIsLoading(true);
     try {
       const result = await hdWalletService.updateAccountName(editingAccount.id, newAccountName.trim());
-      
       if (result.success) {
         toastManager.show('계정 이름이 변경되었습니다.');
-        loadAccounts();
+        loadAccounts(true);
         setShowRenameModal(false);
         setEditingAccount(null);
         setNewAccountName('');
@@ -104,15 +104,12 @@ export const AccountManager: React.FC<AccountManagerProps> = ({ isOpen, onClose,
     setIsLoading(true);
     try {
       const result = await hdWalletService.removeAccount(account.id);
-      
       if (result.success) {
         toastManager.show('계정이 삭제되었습니다.');
-        loadAccounts();
+        loadAccounts(true);
         if (onAccountChange) {
           const newActive = hdWalletService.getActiveAccount();
-          if (newActive) {
-            onAccountChange(newActive);
-          }
+          if (newActive) onAccountChange(newActive);
         }
       } else {
         toastManager.show(result.error || '계정 삭제에 실패했습니다.');
@@ -128,12 +125,9 @@ export const AccountManager: React.FC<AccountManagerProps> = ({ isOpen, onClose,
     setIsLoading(true);
     try {
       const success = await hdWalletService.setActiveAccount(account.id);
-      
       if (success) {
         setActiveAccount(account);
-        if (onAccountChange) {
-          onAccountChange(account);
-        }
+        onAccountChange?.(account);
         toastManager.show(`"${account.name}" 계정으로 전환되었습니다.`);
       } else {
         toastManager.show('계정 전환에 실패했습니다.');
@@ -145,13 +139,9 @@ export const AccountManager: React.FC<AccountManagerProps> = ({ isOpen, onClose,
     }
   };
 
-  const openRenameModal = (account: WalletAccount) => {
-    setEditingAccount(account);
-    setNewAccountName(account.name);
-    setShowRenameModal(true);
-  };
-
   if (!isOpen) return null;
+
+  const showHdNotInitialized = walletType !== 'privateKey' && !hdReady;
 
   return (
     <div className="modal-overlay visible" onClick={onClose}>
@@ -162,7 +152,7 @@ export const AccountManager: React.FC<AccountManagerProps> = ({ isOpen, onClose,
             <button 
               className="btn btn-sm btn-primary"
               onClick={() => setShowAddModal(true)}
-              disabled={isLoading || accounts.length >= 10}
+              disabled={isLoading || accounts.length >= 10 || showHdNotInitialized}
               title="새 계정 추가"
             >
               + 계정 추가
@@ -178,7 +168,7 @@ export const AccountManager: React.FC<AccountManagerProps> = ({ isOpen, onClose,
               <h4>HD 지갑 기능을 사용할 수 없습니다</h4>
               <p>개인키로 등록된 지갑은 HD 지갑 기능을 지원하지 않습니다.<br/>니모닉으로 지갑을 생성하거나 가져와야 합니다.</p>
             </div>
-          ) : !hdWalletService.isInitialized() ? (
+          ) : showHdNotInitialized ? (
             <div className="account-empty-state">
               <div className="empty-state-icon">🔐</div>
               <h4>HD 지갑이 초기화되지 않았습니다</h4>
@@ -193,52 +183,52 @@ export const AccountManager: React.FC<AccountManagerProps> = ({ isOpen, onClose,
           ) : (
             <div className="account-list">
               {accounts.map((account: WalletAccount) => (
-              <div key={account.id} className={`account-item ${account.id === activeAccount?.id ? 'active' : ''}`}>
-                <div className="account-info">
-                  <div className="account-name">{account.name}</div>
-                  <div className="account-address">{account.address}</div>
-                  <div className="account-index">파생 인덱스: {account.derivationIndex}</div>
-                </div>
-                <div className="account-actions">
-                  {account.id !== activeAccount?.id ? (
+                <div key={account.id} className={`account-item ${account.id === activeAccount?.id ? 'active' : ''}`}>
+                  <div className="account-info">
+                    <div className="account-name">{account.name}</div>
+                    <div className="account-address">{account.address}</div>
+                    <div className="account-index">파생 인덱스: {account.derivationIndex}</div>
+                  </div>
+                  <div className="account-actions">
+                    {account.id !== activeAccount?.id ? (
+                      <button 
+                        className="btn btn-sm btn-primary"
+                        onClick={() => handleSwitchAccount(account)}
+                        disabled={isLoading}
+                        title="이 계정으로 전환"
+                      >
+                        전환
+                      </button>
+                    ) : (
+                      <div className="account-status">
+                        <span className="status-badge active">현재 계정</span>
+                      </div>
+                    )}
                     <button 
-                      className="btn btn-sm btn-primary"
-                      onClick={() => handleSwitchAccount(account)}
+                      className="btn btn-sm btn-ghost"
+                      onClick={() => setShowRenameModal(true) || setEditingAccount(account)}
                       disabled={isLoading}
-                      title="이 계정으로 전환"
+                      title="계정 이름 변경"
                     >
-                      전환
+                      ✏️
                     </button>
-                  ) : (
-                    <div className="account-status">
-                      <span className="status-badge active">현재 계정</span>
-                    </div>
-                  )}
-                  <button 
-                    className="btn btn-sm btn-ghost"
-                    onClick={() => openRenameModal(account)}
-                    disabled={isLoading}
-                    title="계정 이름 변경"
-                  >
-                    ✏️
-                  </button>
-                  {accounts.length > 1 && (
-                    <button 
-                      className="btn btn-sm btn-danger"
-                      onClick={() => handleRemoveAccount(account)}
-                      disabled={isLoading}
-                      title="계정 삭제"
-                    >
-                      🗑️
-                    </button>
-                  )}
+                    {accounts.length > 1 && (
+                      <button 
+                        className="btn btn-sm btn-danger"
+                        onClick={() => handleRemoveAccount(account)}
+                        disabled={isLoading}
+                        title="계정 삭제"
+                      >
+                        🗑️
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
               ))}
             </div>
           )}
 
-          {hdWalletService.isInitialized() && (
+          {!showHdNotInitialized && (
             <div className="account-actions-footer">
               <button 
                 className="btn btn-primary"

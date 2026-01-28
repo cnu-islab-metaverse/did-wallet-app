@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { WalletAccount } from '../types/hdWallet';
 import { hdWalletService } from '../lib/hdWalletService';
 
@@ -12,6 +12,8 @@ export const AccountSelector = ({ onAccountChange, onManageAccounts, forceClose 
   const [accounts, setAccounts] = useState<WalletAccount[]>([]);
   const [activeAccount, setActiveAccount] = useState<WalletAccount | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const buttonRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadAccounts();
@@ -22,6 +24,17 @@ export const AccountSelector = ({ onAccountChange, onManageAccounts, forceClose 
       setIsDropdownOpen(false);
     }
   }, [forceClose]);
+
+  useEffect(() => {
+    if (isDropdownOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width
+      });
+    }
+  }, [isDropdownOpen]);
 
   const loadAccounts = () => {
     const allAccounts = hdWalletService.getAccounts();
@@ -52,6 +65,7 @@ export const AccountSelector = ({ onAccountChange, onManageAccounts, forceClose 
   return (
     <div className="account-selector">
       <div 
+        ref={buttonRef}
         className="account-current" 
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
       >
@@ -66,7 +80,14 @@ export const AccountSelector = ({ onAccountChange, onManageAccounts, forceClose 
       </div>
 
       {isDropdownOpen && (
-        <div className="account-dropdown">
+        <div 
+          className="account-dropdown"
+          style={{
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            width: `${dropdownPosition.width}px`
+          }}
+        >
           <div className="account-list">
             {accounts.map((account: WalletAccount) => (
               <div

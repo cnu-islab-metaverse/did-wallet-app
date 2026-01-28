@@ -20,13 +20,13 @@ export class NetworkService {
         this.networks = [...DEFAULT_NETWORKS];
         await this.saveNetworks();
       }
-
+      
       const currentChainIdStr = await storageAdapter.get<string>(STORAGE_KEYS.currentNetwork);
       if (currentChainIdStr) {
         const cid = parseInt(currentChainIdStr as unknown as string);
         this.currentNetwork = this.networks.find(n => n.chainId === cid) || null;
       }
-
+      
       if (!this.currentNetwork && this.networks.length > 0) {
         const def = this.networks.find(n => n.chainId === APP_CONFIG.defaults.currentNetworkChainId);
         this.currentNetwork = def || this.networks[0];

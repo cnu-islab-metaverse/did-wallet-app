@@ -1,46 +1,44 @@
-// Development configuration - DO NOT USE IN PRODUCTION
+import { isDevelopment, getPlatform } from '../utils/platform';
+
+// ====================================================================
+// DEVELOPMENT CONFIGURATION TEMPLATE
+// ====================================================================
+// This file contains DUMMY DATA for demonstration and testing.
+// For actual development, copy this to `dev.config.local.ts` and fill in your real credentials.
+//
+// GitHub clone users can run the app immediately with these safe defaults.
+// ====================================================================
+
 export const DEV_CONFIG = {
-  // Set to true to skip authentication in development
-  skipAuth: true,
+  // Set to true to bypass authentication during development
+  skipAuth: false,
   
-  // Development wallet credentials
-  // NOTE: You can provide either mnemonic OR privateKey (or both for validation)
   wallet: {
-    password: '1q2w3e4r',
-    // mnemonic: 'outdoor valve rural kiwi shrug cook orange subway limit globe skate mesh pilot honey master nation flavor swim jungle better infant alert proud believe',
-    privateKey: '0x03876aefca453f41d300c855c237e83291fcf51c6c32746cfc9e53b645be8393',
-    address: '0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d',
+    // Example password - replace in dev.config.local.ts
+    password: 'test1234',
+    // Example mnemonic (12-word) - replace with your own in dev.config.local.ts
+    mnemonic: 'test test test test test test test test test test test junk',
+    // Example private key - replace in dev.config.local.ts
+    privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+    // Example address - replace in dev.config.local.ts
+    address: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
   },
-  
-  // Network settings for development
+  // Default network for development
   network: 'sepolia' as const,
 };
 
-// Check if we're in development mode
-export const isDevelopment = () => {
-  // For Chrome Extension
-  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
-    // Extension environment - check if it's unpacked (development)
-    return !chrome.runtime.getManifest().update_url;
-  }
-  
-  // For Desktop/Web
-  return process.env.NODE_ENV === 'development' || 
-         (typeof window !== 'undefined' && window.location.hostname === 'localhost');
-};
+export { isDevelopment } from '../utils/platform';
 
-// Helper to check if dev mode is enabled
 export const isDevModeEnabled = () => {
   const devMode = isDevelopment();
   const skipAuth = DEV_CONFIG.skipAuth;
   const result = devMode && skipAuth;
   
-  // Debug logging
   console.log('Dev Config Debug:', {
     isDevelopment: devMode,
     skipAuth: skipAuth,
     isDevModeEnabled: result,
-    environment: typeof chrome !== 'undefined' ? 'extension' : 'desktop'
+    platform: getPlatform()
   });
   
   return result;

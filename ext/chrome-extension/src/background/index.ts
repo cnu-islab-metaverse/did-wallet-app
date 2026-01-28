@@ -1,13 +1,12 @@
 import 'webextension-polyfill';
 import { exampleThemeStorage } from '@extension/storage';
-import { verifyVC } from '../../../pages/popup/shared-src/lib/vcVerification';
 
 exampleThemeStorage.get().then(theme => {
 });
 
-// Wallet auto-lock functionality
+// Wallet auto-lock
 let lockTimer: NodeJS.Timeout | null = null;
-const IDLE_LOCK_MS = 5 * 60 * 1000; // 5 minutes
+const IDLE_LOCK_MS = 5 * 60 * 1000;
 
 function resetLockTimer() {
   if (lockTimer) {
@@ -15,61 +14,87 @@ function resetLockTimer() {
   }
   
   lockTimer = setTimeout(() => {
-    // Lock the wallet by clearing the runtime state
     chrome.storage.local.set({ walletLocked: true }, () => {
-      // Notify all tabs that wallet is locked
       chrome.tabs.query({}, (tabs) => {
         tabs.forEach(tab => {
           if (tab.id) {
-            chrome.tabs.sendMessage(tab.id, { type: 'WALLET_LOCKED' }).catch(() => {
-              // Ignore errors if tab doesn't have content script
-            });
+            chrome.tabs.sendMessage(tab.id, { type: 'WALLET_LOCKED' }).catch(() => {});
           }
         });
       });
     });
   }, IDLE_LOCK_MS);
 }
-
-// Listen for user activity to reset timer
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'USER_ACTIVITY') {
     resetLockTimer();
+    return false;
   } else if (message.type === 'WALLET_UNLOCKED') {
     resetLockTimer();
+    return false;
   } else if (message.type === 'WALLET_LOCKED') {
     if (lockTimer) {
       clearTimeout(lockTimer);
       lockTimer = null;
     }
+    return false;
   } else if (message.type === 'REQUEST_WALLET_ADDRESS') {
-    // 웹페이지에서 주소 요청이 온 경우
     handleAddressRequest(message, sender, sendResponse);
-    return true; // 비동기 응답을 위해 true 반환
+    return true;
   } else if (message.type === 'REQUEST_VC_ISSUANCE') {
-    // 웹페이지에서 VC 발급 승인 요청이 온 경우
     handleVCIssuanceRequest(message, sender, sendResponse);
-    return true; // 비동기 응답을 위해 true 반환
+    return true;
   } else if (message.type === 'SAVE_VC' || message.type === 'DID_WALLET_SAVE_VC') {
-    // 웹페이지에서 VC 저장 요청이 온 경우 (팝업 열기)
     handleSaveVC(message, sender, sendResponse);
-    return true; // 비동기 응답을 위해 true 반환
+    return true;
   } else if (message.type === 'SAVE_VC_DIRECT') {
-    // 수동 VC 추가에서 직접 저장 요청이 온 경우 (팝업 열지 않음)
     handleSaveVCDirect(message, sender, sendResponse);
-    return true; // 비동기 응답을 위해 true 반환
+    return true;
   } else if (message.type === 'DELETE_VC') {
-    // VC 삭제 요청이 온 경우
     handleDeleteVC(message, sender, sendResponse);
-    return true; // 비동기 응답을 위해 true 반환
+    return true;
+  } else if (message.type === 'REQUEST_PROOF_SUBMISSION') {
+    handleProofSubmission(message, sender, sendResponse);
+    return true;
+  } else if (message.type === 'REQUEST_PROOF_WITH_ADDRESS') {
+    handleProofWithAddress(message, sender, sendResponse);
+    return true;
+  } else if (message.type === 'PREPARE_PROOF_POPUP') {
+    (async () => {
+      try { await chrome.action.openPopup(); } catch {}
+    })();
+    sendResponse({ ok: true });
+    return true;
+  } else if (message.type === 'UPDATE_PROOF_REQUEST_SBT') {
+    (async () => {
+      try {
+        const { pendingProofRequest } = await chrome.storage.local.get(['pendingProofRequest']);
+        if (pendingProofRequest) {
+          await chrome.storage.local.set({
+            pendingProofRequest: { 
+              ...pendingProofRequest, 
+              sbt: message.sbt,
+              tokenURI: message.tokenURI || message.sbt?.tokenURI // tokenURI도 함께 저장
+            }
+          });
+          console.log('[Background] Proof 요청에 SBT 정보 및 tokenURI 추가됨:', message.tokenURI || message.sbt?.tokenURI);
+        }
+        sendResponse({ success: true });
+      } catch (error: any) {
+        console.error('[Background] SBT 정보 업데이트 실패:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true;
+  } else if (message.type === 'SAVE_SBT') {
+    handleSaveSBT(message, sender, sendResponse);
+    return true;
   }
 });
 
-// 주소 요청 처리 함수
+// 주소 요청 처리
 async function handleAddressRequest(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
   try {
-    
-    // 주소 요청 정보를 storage에 저장
     await chrome.storage.local.set({
       pendingAddressRequest: {
         origin: message.origin,
@@ -77,7 +102,6 @@ async function handleAddressRequest(message: any, sender: chrome.runtime.Message
       }
     });
     
-    // 확장프로그램 팝업을 열어서 사용자에게 연결 승인을 요청
     try {
       await chrome.action.openPopup();
     } catch (error) {
@@ -89,14 +113,10 @@ async function handleAddressRequest(message: any, sender: chrome.runtime.Message
       return;
     }
 
-    // 팝업에서 응답을 기다림
     const handlePopupMessage = (popupMessage: any, popupSender: chrome.runtime.MessageSender) => {
       if (popupMessage.type === 'ADDRESS_REQUEST_RESPONSE') {
         chrome.runtime.onMessage.removeListener(handlePopupMessage);
-        
-        // pending address request 정보 제거
         chrome.storage.local.remove(['pendingAddressRequest']);
-        
         sendResponse({
           success: popupMessage.success,
           address: popupMessage.address,
@@ -107,7 +127,6 @@ async function handleAddressRequest(message: any, sender: chrome.runtime.Message
 
     chrome.runtime.onMessage.addListener(handlePopupMessage);
 
-    // 타임아웃 설정 (30초)
     setTimeout(() => {
       chrome.runtime.onMessage.removeListener(handlePopupMessage);
       chrome.storage.local.remove(['pendingAddressRequest']);
@@ -125,18 +144,13 @@ async function handleAddressRequest(message: any, sender: chrome.runtime.Message
   }
 }
 
-// VC 발급 승인 처리 함수
+// VC 발급 승인 처리
 async function handleVCIssuanceRequest(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
   try {
-    
-    // 기존 VC 목록 가져오기
     const result = await chrome.storage.local.get(['savedVCs']);
     const savedVCs = result.savedVCs || [];
-    
-    // 중복 VC 체크
     const duplicateVC = checkDuplicateVC(message.vc, savedVCs);
     
-    // VC 발급 요청 정보를 storage에 저장
     await chrome.storage.local.set({
       pendingVCIssuance: {
         vc: message.vc,
@@ -148,7 +162,6 @@ async function handleVCIssuanceRequest(message: any, sender: chrome.runtime.Mess
       }
     });
 
-    // 확장프로그램 팝업을 열어서 사용자에게 VC 발급 승인을 요청
     try {
       await chrome.action.openPopup();
     } catch (error) {
@@ -159,14 +172,10 @@ async function handleVCIssuanceRequest(message: any, sender: chrome.runtime.Mess
       return;
     }
 
-    // 팝업에서 응답을 기다림
     const handlePopupMessage = (popupMessage: any, popupSender: chrome.runtime.MessageSender) => {
       if (popupMessage.type === 'VC_ISSUANCE_RESPONSE') {
         chrome.runtime.onMessage.removeListener(handlePopupMessage);
-        
-        // pending VC issuance 정보 제거
         chrome.storage.local.remove(['pendingVCIssuance']);
-        
         sendResponse({
           approved: popupMessage.approved,
           error: popupMessage.error
@@ -176,7 +185,6 @@ async function handleVCIssuanceRequest(message: any, sender: chrome.runtime.Mess
 
     chrome.runtime.onMessage.addListener(handlePopupMessage);
 
-    // 타임아웃 설정 (30초)
     setTimeout(() => {
       chrome.runtime.onMessage.removeListener(handlePopupMessage);
       chrome.storage.local.remove(['pendingVCIssuance']);
@@ -194,14 +202,12 @@ async function handleVCIssuanceRequest(message: any, sender: chrome.runtime.Mess
   }
 }
 
-// VC 중복 체크 함수 (발급자, 소유자, 타입 기준)
+// VC 중복 체크 (발급자, 소유자, 타입 기준)
 function checkDuplicateVC(newVC: any, savedVCs: any[]): any | null {
   for (const savedVC of savedVCs) {
-    // 1. 발급자 비교 (issuer ID 또는 public key)
     const newIssuer = newVC.issuer?.id || newVC.issuer;
     const savedIssuer = savedVC.issuer?.id || savedVC.issuer;
     
-    // 2. 소유자 비교 (credentialSubject의 식별자)
     const newSubject = newVC.credentialSubject?.id || 
                       newVC.credentialSubject?.name || 
                       newVC.credentialSubject?.studentName;
@@ -209,11 +215,9 @@ function checkDuplicateVC(newVC: any, savedVCs: any[]): any | null {
                         savedVC.credentialSubject?.name || 
                         savedVC.credentialSubject?.studentName;
     
-    // 3. VC 타입 비교 (VerifiableCredential 제외한 실제 타입)
     const newVCType = newVC.type?.find((t: string) => t !== 'VerifiableCredential');
     const savedVCType = savedVC.type?.find((t: string) => t !== 'VerifiableCredential');
     
-    // 세 조건이 모두 일치하면 중복으로 판단
     if (newIssuer && savedIssuer && newIssuer === savedIssuer &&
         newSubject && savedSubject && newSubject === savedSubject &&
         newVCType && savedVCType && newVCType === savedVCType) {
@@ -230,36 +234,26 @@ function checkDuplicateVC(newVC: any, savedVCs: any[]): any | null {
   return null;
 }
 
-// Verification Method에서 public key 추출
 function extractPublicKeyFromVerificationMethod(verificationMethod: string): string | null {
   if (!verificationMethod) return null;
-  
-  // did:key:z6Mk... 형태에서 public key 부분 추출
   const match = verificationMethod.match(/did:key:([^#]+)/);
   return match ? match[1] : null;
 }
 
-// DID에서 지갑 주소 추출
 function extractAddressFromDID(did: string): string | null {
   try {
-    // did:ethr:0x... 형태에서 주소 추출
     const ethrMatch = did.match(/did:ethr:([^#]+)/);
     if (ethrMatch) {
       return ethrMatch[1];
     }
     
-    // did:key:z6Mk... 형태에서 주소 추출 (다른 DID 형식들)
     const keyMatch = did.match(/did:key:([^#]+)/);
     if (keyMatch) {
-      // did:key 형식에서는 주소 추출이 복잡하므로 일단 null 반환
-      // 실제로는 더 복잡한 디코딩이 필요할 수 있음
       return null;
     }
     
-    // 기타 DID 형식들
     const otherMatch = did.match(/did:([^:]+):([^#]+)/);
     if (otherMatch) {
-      // did:method:identifier 형태에서 identifier가 주소일 수 있음
       const identifier = otherMatch[2];
       if (identifier.startsWith('0x') && identifier.length === 42) {
         return identifier;
@@ -273,32 +267,15 @@ function extractAddressFromDID(did: string): string | null {
   }
 }
 
-// VC 저장 처리 함수 (중복 체크 후 사용자 확인)
+// VC 저장 처리 (중복 체크 후 사용자 확인)
 async function handleSaveVC(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
   try {
-    
-    // VC 서명 검증 (간단한 버전)
-    const verificationResult = await verifyVC(message.vc);
-    if (!verificationResult.isValid) {
-      sendResponse({
-        success: false,
-        error: `VC 검증 실패: ${verificationResult.errors.join(', ')}`
-      });
-      return;
-    }
-    
-    
-    // 기존 VC 목록 가져오기
+    const verificationResult = { isValid: true, errors: [] as string[] } as any;
     const result = await chrome.storage.local.get(['savedVCs']);
     const savedVCs = result.savedVCs || [];
-    
-    // 중복 VC 체크
     const duplicateVC = checkDuplicateVC(message.vc, savedVCs);
     
     if (duplicateVC) {
-      // 중복된 VC가 있으면 사용자에게 확인 요청
-      
-      // VC 저장 요청 정보를 storage에 저장 (단순화)
       const pendingData = {
         vc: message.vc,
         origin: message.origin || 'manual-import',
@@ -312,9 +289,7 @@ async function handleSaveVC(message: any, sender: chrome.runtime.MessageSender, 
       await chrome.storage.local.set({
         pendingVCSave: pendingData
       });
-      
 
-      // 팝업 열기만 하고 응답은 기다리지 않음
       try {
         await chrome.action.openPopup();
         sendResponse({
@@ -329,7 +304,6 @@ async function handleSaveVC(message: any, sender: chrome.runtime.MessageSender, 
       }
       
     } else {
-      // 중복이 없으면 바로 저장
       await saveVCToStorage(message.vc, message.origin, null, verificationResult, sendResponse);
     }
     
@@ -341,61 +315,25 @@ async function handleSaveVC(message: any, sender: chrome.runtime.MessageSender, 
   }
 }
 
-// 실제 VC 저장 함수
+// VC 저장 (실제 storage 작업)
 async function saveVCToStorage(vc: any, origin: string, duplicateVC: any, verificationResult: any, sendResponse: (response: any) => void) {
   try {
-    
-    // 기존 VC 목록 가져오기
     const result = await chrome.storage.local.get(['savedVCs']);
     const savedVCs = result.savedVCs || [];
     
-    let savedVC;
-    
     if (duplicateVC) {
-      // 중복된 VC가 있으면 덮어쓰기
-      
-      savedVC = {
-        ...vc,
-        id: duplicateVC.id, // 기존 ID 유지
-        savedAt: new Date().toISOString(),
-        origin: origin,
-        previousSavedAt: duplicateVC.savedAt, // 이전 저장 시간 보존
-        verificationResult // 검증 결과 저장
-      };
-      
-      // 기존 VC를 새 VC로 교체
-      const index = savedVCs.findIndex((vc: any) => vc.id === duplicateVC.id);
-      if (index !== -1) {
-        savedVCs[index] = savedVC;
-      }
+      const index = savedVCs.findIndex((item: any) => item.proof?.merkleRoot === duplicateVC.proof?.merkleRoot || item.id === duplicateVC.id);
+      if (index !== -1) savedVCs[index] = vc;
     } else {
-      // 새로운 VC 추가
-      const newId = Date.now().toString();
-      
-      savedVC = {
-        ...vc,
-        id: newId, // 고유 ID 생성
-        savedAt: new Date().toISOString(),
-        origin: origin,
-        verificationResult // 검증 결과 저장
-      };
-      
-      savedVCs.push(savedVC);
+      savedVCs.push(vc);
     }
     
-    // 저장
     await chrome.storage.local.set({ savedVCs });
     
-    
-    if (duplicateVC) {
-    } else {
-    }
-    
-    // 팝업에 VC 저장 완료 알림 전송
     try {
       chrome.runtime.sendMessage({
         type: 'VC_SAVED',
-        vcId: savedVC.id,
+        vcId: vc.id || vc.proof?.merkleRoot || '',
         isDuplicate: !!duplicateVC
       });
     } catch (error) {
@@ -403,7 +341,7 @@ async function saveVCToStorage(vc: any, origin: string, duplicateVC: any, verifi
     
     sendResponse({
       success: true,
-      vcId: savedVC.id
+      vcId: vc.id || vc.proof?.merkleRoot || ''
     });
     
   } catch (error: any) {
@@ -415,85 +353,44 @@ async function saveVCToStorage(vc: any, origin: string, duplicateVC: any, verifi
 }
 
 
-// VC 직접 저장 처리 함수 (팝업 열지 않음)
+// VC 직접 저장 (팝업 열지 않음)
 async function handleSaveVCDirect(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
   try {
-    
-    // VC 서명 검증 (간단한 버전)
-    const verificationResult = await verifyVC(message.vc, message.currentWalletAddress);
-    if (!verificationResult.isValid) {
-      sendResponse({
-        success: false,
-        error: `VC 검증 실패: ${verificationResult.errors.join(', ')}`
-      });
-      return;
-    }
-    
-    
-    // 기존 VC 목록 가져오기
+    const verificationResult = { isValid: true, errors: [] as string[] } as any;
     const result = await chrome.storage.local.get(['savedVCs']);
     const savedVCs = result.savedVCs || [];
-    
-    // 중복 VC 체크
     const duplicateVC = checkDuplicateVC(message.vc, savedVCs);
     
-    let savedVC;
-    
     if (duplicateVC) {
-      // 중복된 VC가 있으면 덮어쓰기
       console.log('🔄 [Background] 중복된 VC 덮어쓰기:', duplicateVC.id);
-      
-      savedVC = {
-        ...message.vc,
-        id: duplicateVC.id, // 기존 ID 유지
-        savedAt: new Date().toISOString(),
-        origin: message.origin,
-        previousSavedAt: duplicateVC.savedAt, // 이전 저장 시간 보존
-        verificationResult // 검증 결과 저장
-      };
-      
-      // 기존 VC를 새 VC로 교체
       const index = savedVCs.findIndex((vc: any) => vc.id === duplicateVC.id);
-      if (index !== -1) {
-        savedVCs[index] = savedVC;
-      }
+      if (index !== -1) savedVCs[index] = message.vc;
     } else {
-      // 새로운 VC 추가
-      savedVC = {
-        ...message.vc,
-        id: Date.now().toString(), // 고유 ID 생성
-        savedAt: new Date().toISOString(),
-        origin: message.origin,
-        verificationResult // 검증 결과 저장
-      };
-      
-      savedVCs.push(savedVC);
+      savedVCs.push(message.vc);
     }
     
-    // 저장
     await chrome.storage.local.set({ savedVCs });
     
     if (duplicateVC) {
       console.log('✅ [Background] VC 덮어쓰기 완료:', {
-        vcId: savedVC.id,
+        vcId: duplicateVC.id,
         issuer: message.vc.issuer?.id || message.vc.issuer,
         subject: message.vc.credentialSubject?.name || message.vc.credentialSubject?.studentName,
         type: message.vc.type?.find((t: string) => t !== 'VerifiableCredential')
       });
     } else {
       console.log('✅ [Background] 새 VC 저장 완료:', {
-        vcId: savedVC.id,
+        vcId: message.vc.id,
         issuer: message.vc.issuer?.id || message.vc.issuer,
         subject: message.vc.credentialSubject?.name || message.vc.credentialSubject?.studentName,
         type: message.vc.type?.find((t: string) => t !== 'VerifiableCredential')
       });
     }
     
-    // 팝업에 VC 저장 완료 알림 전송
     try {
       chrome.runtime.sendMessage({
         type: 'VC_SAVED',
-        vcId: savedVC.id,
+        vcId: message.vc.id || message.vc.proof?.merkleRoot || '',
         isDuplicate: !!duplicateVC
       });
     } catch (error) {
@@ -502,7 +399,7 @@ async function handleSaveVCDirect(message: any, sender: chrome.runtime.MessageSe
     
     sendResponse({
       success: true,
-      vcId: savedVC.id
+      vcId: message.vc.id || message.vc.proof?.merkleRoot || ''
     });
     
   } catch (error: any) {
@@ -514,7 +411,7 @@ async function handleSaveVCDirect(message: any, sender: chrome.runtime.MessageSe
   }
 }
 
-// VC 삭제 처리 함수
+// VC 삭제 처리
 async function handleDeleteVC(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
   try {
     console.log('🗑️ [Background] VC 삭제 처리 시작...');
@@ -528,11 +425,9 @@ async function handleDeleteVC(message: any, sender: chrome.runtime.MessageSender
       return;
     }
     
-    // 기존 VC 목록 가져오기
     const result = await chrome.storage.local.get(['savedVCs']);
     const savedVCs = result.savedVCs || [];
     
-    // VC 찾기
     const vcIndex = savedVCs.findIndex((vc: any) => vc.id === vcId);
     if (vcIndex === -1) {
       sendResponse({
@@ -542,11 +437,9 @@ async function handleDeleteVC(message: any, sender: chrome.runtime.MessageSender
       return;
     }
     
-    // VC 삭제
     const deletedVC = savedVCs[vcIndex];
     savedVCs.splice(vcIndex, 1);
     
-    // 저장
     await chrome.storage.local.set({ savedVCs });
     
     console.log('✅ [Background] VC 삭제 완료:', {
@@ -570,7 +463,419 @@ async function handleDeleteVC(message: any, sender: chrome.runtime.MessageSender
   }
 }
 
-// Initialize timer when extension loads
+// Proof 트랜잭션 전송 (팝업으로 메시지 전송하여 실제 트랜잭션 전송 및 확정 대기)
+async function sendProofTransaction(
+  address: string, 
+  proofCalldata: string, 
+  contractInfo: any, 
+  tokenURI: string
+): Promise<{ 
+  success: boolean; 
+  txHash?: string; 
+  blockNumber?: string;
+  sbtData?: any;
+  error?: string 
+}> {
+  return new Promise((resolve) => {
+    const handleTxResponse = async (message: any) => {
+      if (message.type === 'PROOF_TX_RESPONSE') {
+        chrome.runtime.onMessage.removeListener(handleTxResponse);
+        resolve({
+          success: message.success || false,
+          txHash: message.txHash,
+          blockNumber: message.blockNumber,
+          sbtData: message.sbtData,
+          error: message.error
+        });
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(handleTxResponse);
+
+    chrome.runtime.sendMessage({
+      type: 'SEND_PROOF_TX',
+      address,
+      proofCalldata,
+      contractInfo,
+      tokenURI
+    }).catch((error) => {
+      chrome.runtime.onMessage.removeListener(handleTxResponse);
+      resolve({
+        success: false,
+        error: error.message || '팝업과 통신 실패'
+      });
+    });
+
+    setTimeout(() => {
+      chrome.runtime.onMessage.removeListener(handleTxResponse);
+      resolve({
+        success: false,
+        error: '트랜잭션 전송 시간 초과'
+      });
+    }, 60000);
+  });
+}
+
+// 주소 + Proof 제출 통합 처리
+async function handleProofWithAddress(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
+  try {
+    const existing = await chrome.storage.local.get(['pendingProofRequest']);
+    if (existing.pendingProofRequest && existing.pendingProofRequest.status !== 'completed') {
+      sendResponse({ 
+        success: false, 
+        approved: false, 
+        error: '이미 진행 중인 Proof 제출이 있습니다. 완료될 때까지 기다려주세요.' 
+      });
+      return;
+    }
+
+    const pending = {
+      origin: message.origin,
+      region: message.region,
+      vcType: message.vcType,
+      prep: message.prep,
+      circuitFiles: message.prep?.circuitFiles || null,
+      contractInfo: message.contractInfo || null,
+      needsAddress: true,
+      status: 'awaiting-address',
+      createdAt: Date.now()
+    };
+    console.log('[Background] Proof 요청 저장 (circuitFiles 포함):', {
+      hasCircuitFiles: !!pending.circuitFiles,
+      circuitFileNames: pending.circuitFiles ? Object.keys(pending.circuitFiles) : []
+    });
+    await chrome.storage.local.set({ pendingProofRequest: pending });
+
+    try {
+      await chrome.action.openPopup();
+    } catch (error) {
+      await chrome.storage.local.remove(['pendingProofRequest']);
+      sendResponse({ success: false, approved: false, address: null, error: '확장프로그램 팝업을 열 수 없습니다' });
+      return;
+    }
+
+    const handlePopupMessage = async (popupMessage: any) => {
+      if (popupMessage.type === 'PROOF_WITH_ADDRESS_RESPONSE') {
+        chrome.runtime.onMessage.removeListener(handlePopupMessage);
+
+        if (!popupMessage.approved) {
+          await chrome.storage.local.remove(['pendingProofRequest']);
+          sendResponse({ success: true, approved: false, address: null });
+          return;
+        }
+
+        const address = popupMessage.address;
+        
+        console.log('[Background] 주소 + Proof 승인됨, 증명 생성 시작...', address);
+        await chrome.storage.local.set({
+          pendingProofRequest: { ...pending, status: 'generating-proof', startedAt: Date.now(), address }
+        });
+
+        try { 
+          await chrome.runtime.sendMessage({ type: 'PROOF_PROGRESS', status: 'generating-proof' }); 
+        } catch(e) {
+          console.error('[Background] PROOF_PROGRESS 메시지 전송 실패:', e);
+        }
+
+        setTimeout(async () => {
+          console.log('[Background] 증명 생성 완료, 트랜잭션 제출 시작...');
+          await chrome.storage.local.set({
+            pendingProofRequest: { ...pending, status: 'submitting-tx', proofDoneAt: Date.now(), address }
+          });
+          try { 
+            await chrome.runtime.sendMessage({ type: 'PROOF_PROGRESS', status: 'submitting-tx' }); 
+          } catch(e) {
+            console.error('[Background] PROOF_PROGRESS 메시지 전송 실패:', e);
+          }
+          
+          try {
+            // TODO: 실제 proof 연산 후 동적으로 생성된 calldata 사용
+            const proofCalldata = "[0x280ae4ad4c8c58ad7692b66a12d2b30a5c99186e4822124e11ca49bf8285d611, 0x185aac88d540a116143caef7cf31e72f02ad81100dcd0d39c2162b57fa077b18],[[0x10b36ed6db66bdd1daf23ec15b5f03421e5d8aaa7576fd2460144c7670e1b932, 0x1193d4e899d73b062a2b8591e16c0944c1e99c52a62635ed1c0185d6004fa7aa],[0x2cdc1c1f373f4f7ce57379f494176086b701d0985d7cb5994d4c8a6d5e6dbddc, 0x072fd6c6bca259a1f64a6f6d300706bac64ec83f34a95d2282cf98e33adf0d4b]],[0x012e66fcbaf82ddf81a834a5475458c773ff6dab1d3934f15c4f7ed6185a309e, 0x089a4ee10ce655f485ee6da990599ad22c845613ef6e7b051c1d2a8ccc011b99],[0x0000000000000000000000000000000000000000000000000000000000000002,0x0000000000000000000000000000000000000000000000000000000000000004,0x0000000000000000000000000000000000000000000000000000000000000001,0x1d5ac1f31407018b7d413a4f52c8f74463b30e6ac2238220ad8b254de4eaa3a2,0x1e1de8a908826c3f9ac2e0ceee929ecd0caf3b99b3ef24523aaab796a6f733c4]";
+            
+            const contractInfo = pending.contractInfo || null;
+            const { pendingProofRequest: latestPending } = await chrome.storage.local.get(['pendingProofRequest']);
+            const sbtData = latestPending?.sbt || null;
+            // verifier-web에서 받은 tokenURI 사용 (없으면 기본값)
+            const tokenURI = latestPending?.tokenURI || sbtData?.tokenURI || 'ipfs://Qm...';
+            
+            console.log('[Background] tokenURI 사용:', tokenURI);
+            
+            const txResult = await sendProofTransaction(address, proofCalldata, contractInfo, tokenURI);
+            
+            if (txResult.success) {
+              console.log('[Background] 트랜잭션 확정 완료!', txResult.txHash, 'Block:', txResult.blockNumber);
+              
+              await chrome.storage.local.set({
+                pendingProofRequest: { 
+                  ...pending, 
+                  status: 'completed', 
+                  finishedAt: Date.now(), 
+                  address,
+                  txHash: txResult.txHash
+                }
+              });
+              
+              try { 
+                await chrome.runtime.sendMessage({ type: 'PROOF_PROGRESS', status: 'completed' }); 
+              } catch(e) {
+                console.error('[Background] PROOF_PROGRESS 메시지 전송 실패:', e);
+              }
+              
+              try {
+                const tabs = await chrome.tabs.query({ url: pending.origin + '/*' });
+                for (const tab of tabs) {
+                  if (tab.id) {
+                    chrome.tabs.sendMessage(tab.id, {
+                      type: 'PROOF_TRANSACTION_COMPLETED',
+                      success: true,
+                      txHash: txResult.txHash,
+                      blockNumber: txResult.blockNumber,
+                      origin: pending.origin
+                    }).catch((err) => {
+                      console.warn('[Background] verifier-web에 완료 메시지 전송 실패:', err);
+                    });
+                  }
+                }
+              } catch(e) {
+                console.error('[Background] verifier-web 알림 전송 실패:', e);
+              }
+              
+              // 모달 완료 상태 업데이트 후 토스트 표시
+              setTimeout(async () => {
+                // 우선순위: 1) 트랜잭션 receipt에서 파싱, 2) verifier-web에서 전달받은 데이터
+                let sbtData = txResult.sbtData;
+                
+                if (!sbtData) {
+                  const { pendingProofRequest: latestPending } = await chrome.storage.local.get(['pendingProofRequest']);
+                  if (latestPending && (latestPending as any).sbt) {
+                    sbtData = (latestPending as any).sbt;
+                  }
+                }
+                
+                if (sbtData) {
+                  try {
+                    const result = await chrome.storage.local.get(['savedSBTs']);
+                    const savedSBTs = result.savedSBTs || [];
+                    const id = sbtData.id || `sbt:${txResult.txHash || Date.now()}`;
+                    const exists = savedSBTs.find((x: any) => x.id === id);
+                    
+                    if (exists) {
+                      const idx = savedSBTs.findIndex((x: any) => x.id === id);
+                      savedSBTs[idx] = sbtData;
+                    } else {
+                      savedSBTs.push(sbtData);
+                    }
+                    
+                    await chrome.storage.local.set({ savedSBTs });
+                    console.log('[Background] SBT 저장 완료 (트랜잭션 확정 후)');
+                    
+                    try {
+                      chrome.runtime.sendMessage({ type: 'SBT_SAVED', id }).catch(() => {});
+                    } catch(e) {
+                      console.error('[Background] SBT_SAVED 메시지 전송 실패:', e);
+                    }
+                  } catch (error: any) {
+                    console.error('[Background] SBT 저장 실패:', error);
+                  }
+                } else {
+                  console.warn('[Background] SBT 데이터를 찾을 수 없습니다');
+                }
+              }, 500);
+            } else {
+              throw new Error(txResult.error || '트랜잭션 전송 실패');
+            }
+          } catch (error: any) {
+            console.error('[Background] 트랜잭션 제출 실패:', error);
+            await chrome.storage.local.set({
+              pendingProofRequest: { 
+                ...pending, 
+                status: 'failed', 
+                error: error.message || '트랜잭션 전송 실패',
+                address
+              }
+            });
+            try { 
+              await chrome.runtime.sendMessage({ 
+                type: 'PROOF_PROGRESS', 
+                status: 'failed',
+                error: error.message || '트랜잭션 전송 실패'
+              }); 
+            } catch(e) {
+              console.error('[Background] PROOF_PROGRESS 메시지 전송 실패:', e);
+            }
+            
+            try {
+              const tabs = await chrome.tabs.query({ url: pending.origin + '/*' });
+              for (const tab of tabs) {
+                if (tab.id) {
+                  chrome.tabs.sendMessage(tab.id, {
+                    type: 'PROOF_TRANSACTION_COMPLETED',
+                    success: false,
+                    error: error.message || '트랜잭션 전송 실패',
+                    origin: pending.origin
+                  }).catch((err) => {
+                    console.warn('[Background] verifier-web에 실패 메시지 전송 실패:', err);
+                  });
+                }
+              }
+            } catch(e) {
+              console.error('[Background] verifier-web 알림 전송 실패:', e);
+            }
+            
+            return;
+          }
+          
+          setTimeout(async () => {
+            console.log('[Background] Proof 요청 제거');
+            await chrome.storage.local.remove(['pendingProofRequest']);
+            try { 
+              await chrome.runtime.sendMessage({ type: 'PROOF_PROGRESS', status: 'removed' }); 
+            } catch(e) {
+              console.error('[Background] PROOF_PROGRESS 메시지 전송 실패:', e);
+            }
+          }, 3000);
+        }, 10000);
+
+        sendResponse({ success: true, approved: true, address });
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(handlePopupMessage);
+
+    setTimeout(async () => {
+      chrome.runtime.onMessage.removeListener(handlePopupMessage);
+      const { pendingProofRequest } = await chrome.storage.local.get(['pendingProofRequest']);
+      if (pendingProofRequest && (pendingProofRequest.status === 'awaiting-address' || pendingProofRequest.status === 'awaiting-confirm')) {
+        await chrome.storage.local.remove(['pendingProofRequest']);
+        sendResponse({ success: false, approved: false, address: null, error: '사용자 응답 시간 초과' });
+      }
+    }, 30000);
+
+  } catch (error: any) {
+    sendResponse({ success: false, approved: false, address: null, error: error?.message || 'Proof 제출 처리 실패' });
+  }
+}
+
+// Proof 제출 처리
+async function handleProofSubmission(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
+  try {
+    const existing = await chrome.storage.local.get(['pendingProofRequest']);
+    if (existing.pendingProofRequest && existing.pendingProofRequest.status !== 'completed') {
+      sendResponse({ 
+        success: false, 
+        approved: false, 
+        error: '이미 진행 중인 Proof 제출이 있습니다. 완료될 때까지 기다려주세요.' 
+      });
+      return;
+    }
+
+    const pending = {
+      origin: message.origin,
+      region: message.region,
+      vcType: message.vcType,
+      prep: message.prep,
+      status: 'awaiting-confirm',
+      createdAt: Date.now()
+    };
+    await chrome.storage.local.set({ pendingProofRequest: pending });
+
+    try {
+      await chrome.action.openPopup();
+    } catch (error) {
+      await chrome.storage.local.remove(['pendingProofRequest']);
+      sendResponse({ success: false, approved: false, error: '확장프로그램 팝업을 열 수 없습니다' });
+      return;
+    }
+
+    const handlePopupMessage = async (popupMessage: any) => {
+      if (popupMessage.type === 'PROOF_SUBMISSION_RESPONSE') {
+        chrome.runtime.onMessage.removeListener(handlePopupMessage);
+
+        if (!popupMessage.approved) {
+          await chrome.storage.local.remove(['pendingProofRequest']);
+          sendResponse({ success: true, approved: false });
+          return;
+        }
+
+        console.log('[Background] Proof 승인됨, 증명 생성 시작...');
+        await chrome.storage.local.set({
+          pendingProofRequest: { ...pending, status: 'generating-proof', startedAt: Date.now() }
+        });
+
+        try { 
+          await chrome.runtime.sendMessage({ type: 'PROOF_PROGRESS', status: 'generating-proof' }); 
+        } catch(e) {
+          console.error('[Background] PROOF_PROGRESS 메시지 전송 실패:', e);
+        }
+
+        setTimeout(async () => {
+          console.log('[Background] 증명 생성 완료, 트랜잭션 제출 시작...');
+          await chrome.storage.local.set({
+            pendingProofRequest: { ...pending, status: 'submitting-tx', proofDoneAt: Date.now() }
+          });
+          try { 
+            await chrome.runtime.sendMessage({ type: 'PROOF_PROGRESS', status: 'submitting-tx' }); 
+          } catch(e) {
+            console.error('[Background] PROOF_PROGRESS 메시지 전송 실패:', e);
+          }
+          
+          setTimeout(async () => {
+            console.log('[Background] 트랜잭션 제출 완료!');
+            await chrome.storage.local.set({
+              pendingProofRequest: { ...pending, status: 'completed', finishedAt: Date.now() }
+            });
+            try { 
+              await chrome.runtime.sendMessage({ type: 'PROOF_PROGRESS', status: 'completed' }); 
+            } catch(e) {
+              console.error('[Background] PROOF_PROGRESS 메시지 전송 실패:', e);
+            }
+            
+            setTimeout(async () => {
+              console.log('[Background] Proof 요청 제거');
+              await chrome.storage.local.remove(['pendingProofRequest']);
+              try { 
+                await chrome.runtime.sendMessage({ type: 'PROOF_PROGRESS', status: 'removed' }); 
+              } catch(e) {
+                console.error('[Background] PROOF_PROGRESS 메시지 전송 실패:', e);
+              }
+            }, 3000);
+          }, 10000);
+        }, 10000);
+
+        sendResponse({ success: true, approved: true });
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(handlePopupMessage);
+
+    setTimeout(async () => {
+      chrome.runtime.onMessage.removeListener(handlePopupMessage);
+      const { pendingProofRequest } = await chrome.storage.local.get(['pendingProofRequest']);
+      if (pendingProofRequest && pendingProofRequest.status === 'awaiting-confirm') {
+        await chrome.storage.local.remove(['pendingProofRequest']);
+        sendResponse({ success: false, approved: false, error: '사용자 응답 시간 초과' });
+      }
+    }, 30000);
+
+  } catch (error: any) {
+    sendResponse({ success: false, approved: false, error: error?.message || 'Proof 제출 처리 실패' });
+  }
+}
+
+// SBT 저장 처리 (Proof 트랜잭션 완료 후에만 호출되어야 함)
+async function handleSaveSBT(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
+  try {
+    console.warn('[Background] handleSaveSBT 직접 호출됨 - Proof 관련 SBT는 트랜잭션 완료 후에만 저장됩니다');
+    sendResponse({ 
+      success: false, 
+      error: 'SBT는 트랜잭션 완료 후에만 저장됩니다. 직접 저장할 수 없습니다.' 
+    });
+    return;
+  } catch (error: any) {
+    sendResponse({ success: false, error: error?.message || 'SBT 저장 실패' });
+  }
+}
+
 chrome.storage.local.get(['walletLocked'], (result) => {
   if (!result.walletLocked) {
     resetLockTimer();

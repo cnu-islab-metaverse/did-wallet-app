@@ -6,14 +6,16 @@
   "scripts": {
     "dev": "start \"Extension Dev\" cmd /k \"cd ext && pnpm dev\" && cd desktop && yarn dev",
     "dev:desktop": "cd desktop && yarn dev",
-    "dev:ext": "cd ext && pnpm dev",
-    "dev:issuer": "cd cnu-issuer-web && pnpm dev",
-    "dev:metaverse": "cd cnu-metaverse-web && pnpm dev",
+    "dev:ext": "cd ext && pnpm build",
+    "dev:issuer": "cd issuer-web && pnpm dev",
+    "dev:metaverse": "cd metaverse-web && pnpm dev",
+    "dev:verifier": "cd verifier-web && pnpm dev",
     "build": "npm run build:desktop && npm run build:ext && npm run build:issuer && npm run build:metaverse",
     "build:desktop": "cd desktop && yarn build",
     "build:ext": "cd ext && pnpm build",
-    "build:issuer": "cd cnu-issuer-web && pnpm build",
-    "build:metaverse": "cd cnu-metaverse-web && pnpm build",
+    "build:issuer": "cd issuer-web && pnpm build",
+    "build:metaverse": "cd metaverse-web && pnpm build",
+    "build:verifier": "cd verifier-web && pnpm build",
     "start": "npm run dev",
     "start:desktop": "npm run dev:desktop",
     "start:ext": "npm run dev:ext",
@@ -25,7 +27,5 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  },
-  "dependencies": {},
-  "devDependencies": {}
+  }
 }

@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+import { ethers, Mnemonic } from 'ethers';
 import { WalletAccount, HDWalletState, HDWalletConfig, AccountCreationResult, AccountUpdateResult } from '../types/hdWallet';
 import { STORAGE_KEYS } from '../config/storage';
 import { storageAdapter } from './storageAdapter';
@@ -89,9 +89,14 @@ export class HDWalletService {
   }
 
   // Derive account from mnemonic at specific index
+  // MetaMask-compatible BIP44 path: m/44'/60'/0'/0/{index}
   private async deriveAccount(mnemonic: string, index: number, name: string): Promise<WalletAccount> {
-    const hdNode = ethers.HDNodeWallet.fromPhrase(mnemonic);
-    const derivedWallet = hdNode.deriveChild(index);
+    // Use Mnemonic to get seed, then create HDNodeWallet from seed to specify exact path
+    const mnemonicObj = Mnemonic.fromPhrase(mnemonic);
+    const seed = mnemonicObj.computeSeed();
+    const rootNode = ethers.HDNodeWallet.fromSeed(seed);
+    // MetaMask uses m/44'/60'/0'/0/{index} for account derivation
+    const derivedWallet = rootNode.derivePath(`m/44'/60'/0'/0/${index}`);
     
     return {
       id: this.generateAccountId(),
@@ -225,8 +230,12 @@ export class HDWalletService {
       const mnemonic = await this.decryptSeed(password);
       if (!mnemonic) return null;
 
-      const hdNode = ethers.HDNodeWallet.fromPhrase(mnemonic);
-      const derivedWallet = hdNode.deriveChild(account.derivationIndex);
+      // Use Mnemonic to get seed, then create HDNodeWallet from seed to specify exact path
+      const mnemonicObj = Mnemonic.fromPhrase(mnemonic);
+      const seed = mnemonicObj.computeSeed();
+      const rootNode = ethers.HDNodeWallet.fromSeed(seed);
+      // MetaMask uses m/44'/60'/0'/0/{index} for account derivation
+      const derivedWallet = rootNode.derivePath(`m/44'/60'/0'/0/${account.derivationIndex}`);
       
       return derivedWallet.privateKey;
     } catch (error) {

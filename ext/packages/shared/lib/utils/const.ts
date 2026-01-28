@@ -23,3 +23,19 @@ export const COLORS = {
   BgCyan: '\x1b[46m',
   BgWhite: '\x1b[47m',
 } as const;
+
+// Centralized error codes with default english messages.
+export const ERROR_CODES = {
+  // Wallet
+  EXTENSION_POPUP_OPEN_FAILED: { code: 'EXTENSION_POPUP_OPEN_FAILED', defaultMessage: 'Failed to open extension popup' },
+  USER_RESPONSE_TIMEOUT: { code: 'USER_RESPONSE_TIMEOUT', defaultMessage: 'User response timed out' },
+
+  // VC verification / issuance
+  VC_VERIFY_FAILED: { code: 'VC_VERIFY_FAILED', defaultMessage: 'VC verification failed' },
+  VC_SAVE_FAILED: { code: 'VC_SAVE_FAILED', defaultMessage: 'Failed to save VC' },
+  VC_DELETE_FAILED: { code: 'VC_DELETE_FAILED', defaultMessage: 'Failed to delete VC' },
+  VC_NOT_FOUND: { code: 'VC_NOT_FOUND', defaultMessage: 'VC not found' },
+
+  // Address
+  ADDRESS_REQUEST_FAILED: { code: 'ADDRESS_REQUEST_FAILED', defaultMessage: 'Wallet address request failed' },
+} as const;

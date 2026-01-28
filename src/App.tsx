@@ -31,11 +31,12 @@ declare global {
     };
   };
 }
-import { createAndStoreWallet, getAddress, getProvider, importWalletFromMnemonic, importWalletFromPrivateKey, initDevWallet, isUnlocked, lockWallet, resetStoredState, unlockWithPassword, clearAllStorageData, hasEncryptedKeystore, getWalletType } from './lib/wallet';
+import { createAndStoreWallet, getAddress, getProvider, importWalletFromMnemonic, importWalletFromPrivateKey, initDevWallet, isUnlocked, lockWallet, resetStoredState, unlockWithPassword, clearAllStorageData, hasEncryptedKeystore, getWalletType, getRuntimeWallet } from './lib/wallet';
+import { Interface } from 'ethers';
 import { hdWalletService } from './lib/hdWalletService';
-import { isDevModeEnabled } from './config/dev.config';
-import { STORAGE_KEYS } from './config/storage';
+import { isDevModeEnabled } from './config';
 import { APP_CONFIG } from './config/app.config';
+import { STORAGE_KEYS } from './config/storage';
 import { storageAdapter } from './lib/storageAdapter';
 import { NetworkSelector } from './components/NetworkSelector';
 import { NetworkConfig } from './types/network';
@@ -46,7 +47,8 @@ import { SensitiveInput, SensitiveTextarea } from './components/SensitiveField';
 import { AccountSelector } from './components/AccountSelector';
 import { AccountManager } from './components/AccountManager';
 import { WalletAccount } from './types/hdWallet';
-import { VCModal } from './components/VCModal';
+import { VCDataModal } from './components/VCDataModal';
+import { DataModal } from './components/DataModal';
 import { VCIssuanceModal } from './components/VCIssuanceModal';
 import { AddVCModal } from './components/AddVCModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
@@ -66,8 +68,7 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
   
   const getInitialTheme = () => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.theme);
-      if (saved === 'light' || saved === 'dark') return saved as 'light' | 'dark';
+      // Don't read storage synchronously here. Use storageAdapter in an effect below.
       if (APP_CONFIG.defaults.theme === 'system' && typeof window !== 'undefined' && window.matchMedia) {
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       }
@@ -86,6 +87,8 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
   };
 
   const [activeTab, setActiveTab] = useState<'tokens' | 'vc' | 'nft' | 'activity'>(getInitialTab);
+  const [savedSBTs, setSavedSBTs] = useState<any[]>([]);
+  const [selectedSBT, setSelectedSBT] = useState<any | null>(null);
   const [currentNetwork, setCurrentNetwork] = useState<NetworkConfig | null>(null);
   const [networksInitialized, setNetworksInitialized] = useState(false);
   const [unlocked, setUnlocked] = useState<boolean>(isUnlocked());
@@ -94,6 +97,8 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [showMenu, setShowMenu] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const [menuDropdownPosition, setMenuDropdownPosition] = useState({ top: 0, right: 0 });
   const [forceCloseDropdowns, setForceCloseDropdowns] = useState(false);
   const [savedVCs, setSavedVCs] = useState<VerifiableCredential[]>([]);
   const [selectedVC, setSelectedVC] = useState<VerifiableCredential | null>(null);
@@ -110,6 +115,22 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
     isDuplicate: boolean;
     duplicateId?: string;
     duplicateVC?: VerifiableCredential;
+  } | null>(null);
+  const [proofRequest, setProofRequest] = useState<{
+    origin: string;
+    region: string;
+    vcType: string;
+    status: 'awaiting-confirm' | 'awaiting-address' | 'generating-proof' | 'submitting-tx' | 'completed' | 'failed';
+    createdAt?: number;
+    startedAt?: number;
+    proofDoneAt?: number;
+    finishedAt?: number;
+    contractInfo?: {
+      address: string;
+      functionName: string;
+      functionSignature?: string;
+      description?: string;
+    } | null;
   } | null>(null);
   const [showAddVCModal, setShowAddVCModal] = useState(false);
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<{
@@ -160,6 +181,19 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
   const IDLE_LOCK_MS = 5 * 60 * 1000; // 5 minutes
   const TOAST_DURATION_MS = 5000; // 5 seconds
 
+  // Load saved theme on mount using storageAdapter (persists across background/close)
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await storageAdapter.get(STORAGE_KEYS.theme);
+        if (saved === 'light' || saved === 'dark') {
+          setTheme(saved);
+        }
+      } catch {}
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     (async () => {
       try { await storageAdapter.set(STORAGE_KEYS.theme, theme); } catch {}
@@ -208,6 +242,190 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
           } else {
             toastManager.show('새 VC가 성공적으로 추가되었습니다');
           }
+        } else if (message.type === 'PROOF_PROGRESS') {
+          // Force reload of pendingProofRequest status
+          console.log('[Popup] PROOF_PROGRESS 메시지 받음:', message.status);
+          if (message.status === 'removed') {
+            console.log('[Popup] Proof 요청 제거');
+            setProofRequest(null);
+          } else {
+            (async () => {
+              const result = await chrome.storage.local.get(['pendingProofRequest']);
+              console.log('[Popup] Storage에서 읽어온 pendingProofRequest:', (result as any).pendingProofRequest);
+              if ((result as any).pendingProofRequest) {
+                setProofRequest((result as any).pendingProofRequest);
+              } else {
+                setProofRequest(null);
+              }
+            })();
+          }
+        } else if (message.type === 'SBT_SAVED') {
+          // reload SBTs and switch to NFT tab on completion
+          (async () => {
+            const result = await chrome.storage.local.get(['savedSBTs']);
+            setSavedSBTs(result.savedSBTs || []);
+            setActiveTab('nft');
+            toastManager.show('SBT가 저장되었습니다');
+          })();
+        } else if (message.type === 'SEND_PROOF_TX') {
+          (async () => {
+            try {
+              const { address: txAddress, proofCalldata, contractInfo, tokenURI } = message;
+              console.log('[Popup] Proof 트랜잭션 전송 요청 받음:', { txAddress, contractInfo, tokenURI });
+              
+              if (!contractInfo || !contractInfo.address) {
+                throw new Error('컨트랙트 정보가 없습니다');
+              }
+              
+              // 네트워크 정보가 있으면 해당 네트워크로 전환
+              let provider = getProvider();
+              if (contractInfo.network) {
+                const networkInfo = contractInfo.network;
+                console.log('[Popup] 컨트랙트 네트워크 정보:', networkInfo);
+                
+                try {
+                  // 네트워크 목록에 해당 네트워크가 있는지 확인
+                  const networks = networkService.getNetworks();
+                  let targetNetwork = networks.find(n => n.chainId === networkInfo.chainId);
+                  
+                  // 네트워크가 없으면 추가
+                  if (!targetNetwork) {
+                    console.log('[Popup] 새로운 네트워크 추가:', networkInfo);
+                    await networkService.addCustomNetwork({
+                      name: networkInfo.name || `Chain ${networkInfo.chainId}`,
+                      chainId: networkInfo.chainId,
+                      rpcUrl: networkInfo.rpcUrl,
+                      symbol: 'ETH',
+                      explorerUrl: ''
+                    });
+                    targetNetwork = networkService.getNetworks().find(n => n.chainId === networkInfo.chainId);
+                  }
+                  
+                  // 네트워크 전환
+                  if (targetNetwork) {
+                    await networkService.switchNetwork(targetNetwork.chainId);
+                    // Provider 재생성
+                    const { JsonRpcProvider } = await import('ethers');
+                    provider = new JsonRpcProvider(targetNetwork.rpcUrl, targetNetwork.chainId);
+                    console.log('[Popup] 네트워크 전환 완료:', targetNetwork.name, targetNetwork.chainId);
+                  } else {
+                    throw new Error('네트워크 추가 후 찾을 수 없습니다');
+                  }
+                } catch (error: any) {
+                  console.error('[Popup] 네트워크 전환 실패:', error);
+                  throw new Error(`네트워크 전환 실패: ${error.message || error}`);
+                }
+              }
+              
+              const walletAddress = getAddress();
+              const wallet = getRuntimeWallet();
+              
+              if (!provider || !walletAddress || !isUnlocked() || !wallet) {
+                throw new Error('지갑이 잠겨있거나 연결되지 않았습니다');
+              }
+
+              // proofCalldata는 [pA, pB, pC, pubSignals] 배열 표현식 문자열
+              // 구조: "[0x..., 0x...], [[0x..., 0x...], [0x..., 0x...]], [0x..., 0x...], [0x...,0x...,...]"
+              // pA: uint256[2], pB: uint256[2][2], pC: uint256[2], pubSignals: uint256[5]
+              let parsedCalldata;
+              try {
+                // 배열 표현식을 배열로 변환
+                const formattedCalldata = `[${proofCalldata.replace(/0x[0-9a-fA-F]+/g, (match: string) => `"${match}"`).replace(/\[/g, '[').replace(/\]/g, ']').replace(/,/g, ',')}]`;
+                parsedCalldata = JSON.parse(formattedCalldata);
+                console.log('Parsed Calldata:', parsedCalldata);
+              } catch (e) {
+                const errorMsg = e instanceof Error ? e.message : String(e);
+                console.error('[Popup] Proof 데이터 파싱 실패:', e, 'calldata:', proofCalldata);
+                throw new Error(`Proof 데이터 파싱 실패: ${errorMsg}`);
+              }
+              
+              // proofData는 [pA, pB, pC, pubSignals] 형태
+              const [pA, pB, pC, pubSignals] = parsedCalldata;
+              
+              console.log('[Popup] Proof 데이터 파싱 완료:', {
+                pA,
+                pB,
+                pC,
+                pubSignals
+              });
+              
+              const mintSBTInterface = new Interface([
+                'function mintSBT(uint256[2] calldata _pA, uint256[2][2] calldata _pB, uint256[2] calldata _pC, uint256[5] calldata _pubSignals, string memory tokenURI) public'
+              ]);
+              
+              // 파라미터를 그대로 전달하여 트랜잭션 인코딩
+              const encodedData = mintSBTInterface.encodeFunctionData('mintSBT', [
+                pA,
+                pB,
+                pC,
+                pubSignals,
+                tokenURI || 'ipfs://'
+              ]);
+              
+              console.log('[Popup] 트랜잭션 전송:', {
+                to: contractInfo.address,
+                from: walletAddress,
+                data: encodedData
+              });
+              
+              const connectedWallet = wallet.connect(provider);
+              const txResponse = await connectedWallet.sendTransaction({
+                to: contractInfo.address,
+                data: encodedData,
+                gasLimit: 1000000
+              });
+              
+              console.log('[Popup] 트랜잭션 전송됨, 해시:', txResponse.hash);
+              
+              const receipt = await provider.waitForTransaction(txResponse.hash, 1, 60000);
+              
+              if (!receipt || receipt.status !== 1) {
+                throw new Error('트랜잭션이 실패했습니다');
+              }
+              
+              console.log('[Popup] 트랜잭션 확정 완료:', receipt.blockNumber);
+              
+              const PassMintedInterface = new Interface([
+                'event PassMinted(address indexed recipient, uint256 tokenId)'
+              ]);
+              
+              let sbtData = null;
+              if (receipt.logs && receipt.logs.length > 0) {
+                for (const log of receipt.logs) {
+                  try {
+                    const parsed = PassMintedInterface.parseLog(log);
+                    if (parsed && parsed.name === 'PassMinted') {
+                      sbtData = {
+                        recipient: parsed.args.recipient,
+                        tokenId: parsed.args.tokenId.toString(),
+                        txHash: receipt.hash || (receipt as any).transactionHash,
+                        blockNumber: receipt.blockNumber.toString()
+                      };
+                      console.log('[Popup] PassMinted 이벤트 파싱 완료:', sbtData);
+                      break;
+                    }
+                  } catch (e) {
+                  }
+                }
+              }
+              
+              chrome.runtime.sendMessage({
+                type: 'PROOF_TX_RESPONSE',
+                success: true,
+                txHash: receipt.hash || (receipt as any).transactionHash,
+                blockNumber: receipt.blockNumber.toString(),
+                sbtData: sbtData
+              });
+              
+            } catch (error: any) {
+              console.error('[Popup] Proof 트랜잭션 전송 실패:', error);
+              chrome.runtime.sendMessage({
+                type: 'PROOF_TX_RESPONSE',
+                success: false,
+                error: error.message || '트랜잭션 전송 실패'
+              });
+            }
+          })();
         }
       };
 
@@ -224,12 +442,33 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
     try {
       if (platform === 'extension') {
         const result = await chrome.storage.local.get(['savedVCs']);
-        const vcs = result.savedVCs || [];
+        let vcs = result.savedVCs || [];
+        // Seed dev VCs when none exist
+        if (APP_CONFIG.dev?.seedVCs && vcs.length === 0) {
+          try {
+            const { default: demo } = await import('./config/demo-vcs.json');
+            const seeded: any[] = [demo.driver, demo.engineer, demo.diploma].filter(Boolean);
+            if (seeded.length > 0) {
+              await chrome.storage.local.set({ savedVCs: seeded });
+              vcs = seeded;
+            }
+          } catch {}
+        }
         setSavedVCs(vcs);
       } else {
         // Desktop: localStorage 사용
         const savedVCsJson = localStorage.getItem('savedVCs');
-        const vcs = savedVCsJson ? JSON.parse(savedVCsJson) : [];
+        let vcs = savedVCsJson ? JSON.parse(savedVCsJson) : [];
+        if (APP_CONFIG.dev?.seedVCs && vcs.length === 0) {
+          try {
+            const { default: demo } = await import('./config/demo-vcs.json');
+            const seeded: any[] = [demo.driver, demo.engineer, demo.diploma].filter(Boolean);
+            if (seeded.length > 0) {
+              localStorage.setItem('savedVCs', JSON.stringify(seeded));
+              vcs = seeded;
+            }
+          } catch {}
+        }
         setSavedVCs(vcs);
       }
     } catch (error) {
@@ -237,17 +476,61 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
     }
   }, [platform]);
 
+  // Load saved SBTs
+  const loadSavedSBTs = useCallback(async () => {
+    try {
+      if (platform === 'extension') {
+        const result = await chrome.storage.local.get(['savedSBTs']);
+        let sbts = result.savedSBTs || [];
+        // Seed dev SBTs when none exist
+        if (APP_CONFIG.dev?.seedVCs && sbts.length === 0) {
+          try {
+            const { default: demoSBTs } = await import('./config/demo-sbts.json');
+            const seeded: any[] = [demoSBTs.cnu_graduation, demoSBTs.daejeon_resident].filter(Boolean);
+            if (seeded.length > 0) {
+              await chrome.storage.local.set({ savedSBTs: seeded });
+              sbts = seeded;
+            }
+          } catch (err) {
+            console.error('Demo SBT 로드 실패:', err);
+          }
+        }
+        setSavedSBTs(sbts);
+      } else {
+        // Desktop: localStorage 사용
+        const json = localStorage.getItem('savedSBTs');
+        let sbts = json ? JSON.parse(json) : [];
+        if (APP_CONFIG.dev?.seedVCs && sbts.length === 0) {
+          try {
+            const { default: demoSBTs } = await import('./config/demo-sbts.json');
+            const seeded: any[] = [demoSBTs.cnu_graduation, demoSBTs.daejeon_resident].filter(Boolean);
+            if (seeded.length > 0) {
+              localStorage.setItem('savedSBTs', JSON.stringify(seeded));
+              sbts = seeded;
+            }
+          } catch (err) {
+            console.error('Demo SBT 로드 실패:', err);
+          }
+        }
+        setSavedSBTs(sbts);
+      }
+    } catch (error) {
+      console.error('SBT 로드 실패:', error);
+    }
+  }, [platform]);
+
   // Load saved VCs on mount
   useEffect(() => {
     loadSavedVCs();
-  }, [loadSavedVCs]);
+    loadSavedSBTs();
+  }, [loadSavedVCs, loadSavedSBTs]);
 
   // Handle pending requests from storage
   useEffect(() => {
     if (platform === 'extension') {
       const checkPendingRequests = async () => {
         try {
-          const result = await chrome.storage.local.get(['pendingVCIssuance', 'pendingVCSave', 'pendingAddressRequest']);
+          const result = await chrome.storage.local.get(['pendingVCIssuance', 'pendingVCSave', 'pendingAddressRequest', 'pendingProofRequest']);
           
           // VC 발급 요청 확인
           const pendingVCIssuance = result.pendingVCIssuance;
@@ -307,6 +590,12 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
             } else {
               await chrome.storage.local.remove(['pendingAddressRequest']);
             }
+          }
+
+          // Proof 제출 요청 확인
+          const pendingProofRequest = result.pendingProofRequest;
+          if (pendingProofRequest) {
+            setProofRequest(pendingProofRequest);
           }
         } catch (error) {
           console.error('대기 중인 요청 확인 실패:', error);
@@ -384,6 +673,86 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
       setVcSaveRequest(null);
     } catch (error) {
       console.error('VC 저장 거절 실패:', error);
+    }
+  };
+
+  // Proof 제출 승인/거절
+  const handleProofApprove = async () => {
+    try {
+      console.log('[Popup] Proof 승인 버튼 클릭, 백그라운드에 메시지 전송...');
+      await chrome.runtime.sendMessage({ type: 'PROOF_SUBMISSION_RESPONSE', approved: true });
+      console.log('[Popup] 백그라운드 응답 받음, 상태는 background에서 업데이트됨');
+      // 상태는 background에서 업데이트됨
+    } catch (error) {
+      console.error('[Popup] Proof 제출 승인 실패:', error);
+    }
+  };
+
+  // 주소 + Proof 통합 승인
+  const handleProofWithAddressApprove = async () => {
+    try {
+      console.log('[Popup] 주소 + Proof 승인 버튼 클릭, 백그라운드에 메시지 전송...');
+      const currentAddress = getAddress();
+      await chrome.runtime.sendMessage({ 
+        type: 'PROOF_WITH_ADDRESS_RESPONSE', 
+        approved: true, 
+        address: currentAddress 
+      });
+      console.log('[Popup] 백그라운드 응답 받음, 상태는 background에서 업데이트됨');
+      // 상태는 background에서 업데이트됨
+    } catch (error) {
+      console.error('[Popup] 주소 + Proof 승인 실패:', error);
+    }
+  };
+
+  const handleProofReject = async () => {
+    try {
+      const currentProofStatus = proofRequest?.status;
+      
+      if (currentProofStatus === 'awaiting-address') {
+        // 통합 요청 거절
+        await chrome.runtime.sendMessage({ 
+          type: 'PROOF_WITH_ADDRESS_RESPONSE', 
+          approved: false, 
+          error: '사용자가 거절했습니다' 
+        });
+      } else {
+        // 일반 Proof 요청 거절
+        await chrome.runtime.sendMessage({ 
+          type: 'PROOF_SUBMISSION_RESPONSE', 
+          approved: false, 
+          error: '사용자가 거절했습니다' 
+        });
+      }
+      
+      await chrome.storage.local.remove(['pendingProofRequest']);
+      setProofRequest(null);
+    } catch (error) {
+      console.error('Proof 제출 거절 실패:', error);
+    }
+  };
+
+  // SBT 삭제 핸들러
+  const handleDeleteSBT = async (sbtId: string) => {
+    try {
+      if (platform === 'extension') {
+        const result = await chrome.storage.local.get(['savedSBTs']);
+        const currentSBTs = result.savedSBTs || [];
+        const updatedSBTs = currentSBTs.filter((sbt: any) => sbt.id !== sbtId);
+        await chrome.storage.local.set({ savedSBTs: updatedSBTs });
+        setSavedSBTs(updatedSBTs);
+        toastManager.show('SBT가 삭제되었습니다');
+      } else {
+        // Desktop: 직접 삭제
+        const updatedSBTs = savedSBTs.filter((sbt: any) => sbt.id !== sbtId);
+        setSavedSBTs(updatedSBTs);
+        // localStorage에 저장
+        localStorage.setItem('savedSBTs', JSON.stringify(updatedSBTs));
+        toastManager.show('SBT가 삭제되었습니다');
+      }
+    } catch (error) {
+      console.error('SBT 삭제 실패:', error);
+      toastManager.show('SBT 삭제에 실패했습니다');
     }
   };
 
@@ -551,7 +920,15 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
 
   const handleDeleteConfirmApprove = async () => {
     if (deleteConfirmModal.vcId) {
-      await handleDeleteVC(deleteConfirmModal.vcId);
+      // VC인지 SBT인지 확인 (id 형식으로 판단)
+      const isSBT = deleteConfirmModal.vcId.startsWith('sbt:') || 
+                    savedSBTs.some((sbt: any) => sbt.id === deleteConfirmModal.vcId);
+      
+      if (isSBT) {
+        await handleDeleteSBT(deleteConfirmModal.vcId);
+      } else {
+        await handleDeleteVC(deleteConfirmModal.vcId);
+      }
     }
     setDeleteConfirmModal({
       isOpen: false,
@@ -702,12 +1079,14 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
         },
         getChromeStorage: async () => {
           if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-            return new Promise((resolve) => {
-              chrome.storage.local.get(null, (result) => {
-                console.log('Chrome storage data:', result);
-                resolve(result);
-              });
-            });
+            try {
+              const result = await chrome.storage.local.get(null as any);
+              console.log('Chrome storage data:', result);
+              return result;
+            } catch (e) {
+              console.error('Failed to get Chrome storage data:', e);
+              return null;
+            }
           }
           return null;
         }
@@ -718,6 +1097,17 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
   const toggleTheme = () => setTheme((prev: 'light' | 'dark') => (prev === 'light' ? 'dark' : 'light'));
 
   const appClassName = useMemo(() => `app app--${platform} theme--${theme}`, [platform, theme]);
+
+  // 메뉴 드롭다운 위치 계산
+  useEffect(() => {
+    if (showMenu && menuButtonRef.current) {
+      const rect = menuButtonRef.current.getBoundingClientRect();
+      setMenuDropdownPosition({
+        top: rect.bottom + 6,
+        right: window.innerWidth - rect.right
+      });
+    }
+  }, [showMenu]);
 
   // Background auto-lock integration
   useEffect(() => {
@@ -783,6 +1173,17 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
         const addr = await unlockWithPassword(password);
         setAddress(addr);
         setUnlocked(true);
+        // Refresh wallet type and HD state after unlock
+        const type = await getWalletType();
+        setWalletType(type);
+        if (type === 'mnemonic') {
+          await hdWalletService.loadState();
+          const currentAccount = hdWalletService.getActiveAccount();
+          if (currentAccount) {
+            setActiveAccount(currentAccount);
+            setAddress(currentAccount.address);
+          }
+        }
       } else if (step === 'setPassword') {
         if (!password || password !== confirm) {
           setError('비밀번호가 일치하지 않습니다.');
@@ -802,6 +1203,14 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
           toastManager.show(`새 지갑 생성됨: ${addr.slice(0,6)}…${addr.slice(-4)}`);
           setAddress(addr);
           setUnlocked(true);
+          // New wallets are mnemonic-based by design
+          setWalletType('mnemonic');
+          await hdWalletService.loadState();
+          const currentAccount = hdWalletService.getActiveAccount();
+          if (currentAccount) {
+            setActiveAccount(currentAccount);
+            setAddress(currentAccount.address);
+          }
         } else {
           goToStep('connect');
           return;
@@ -819,6 +1228,17 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
           toastManager.show(`기존 주소 등록됨: ${addr.slice(0,6)}…${addr.slice(-4)}`);
           setAddress(addr);
           setUnlocked(true);
+          // Refresh wallet type and HD state based on import mode
+          const type = await getWalletType();
+          setWalletType(type);
+          if ((importMode === 'mnemonic') || type === 'mnemonic') {
+            await hdWalletService.loadState();
+            const currentAccount = hdWalletService.getActiveAccount();
+            if (currentAccount) {
+              setActiveAccount(currentAccount);
+              setAddress(currentAccount.address);
+            }
+          }
         }
       }
       setPassword('');
@@ -1019,10 +1439,17 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
                   <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
                 </svg>}
               </button>
-              <button className="mm-menu__btn" onClick={() => {
-                setShowMenu((v: boolean) => !v);
-                setForceCloseDropdowns((prev: boolean) => !prev); // Force close dropdowns when menu opens
-              }} aria-haspopup="menu" aria-expanded={showMenu} aria-label="열기">
+              <button 
+                ref={menuButtonRef}
+                className="mm-menu__btn" 
+                onClick={() => {
+                  setShowMenu((v: boolean) => !v);
+                  setForceCloseDropdowns((prev: boolean) => !prev); // Force close dropdowns when menu opens
+                }} 
+                aria-haspopup="menu" 
+                aria-expanded={showMenu} 
+                aria-label="열기"
+              >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="feather feather-menu">
                   <line x1="3" y1="12" x2="21" y2="12"></line>
                   <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -1030,7 +1457,14 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
                 </svg>
                 </button>
               {showMenu && (
-                <div className="menu-dropdown" role="menu">
+                <div 
+                  className="menu-dropdown" 
+                  role="menu"
+                  style={{
+                    top: `${menuDropdownPosition.top}px`,
+                    right: `${menuDropdownPosition.right}px`
+                  }}
+                >
                   <button className="mm-menu__item" role="menuitem" onClick={() => { setShowMenu(false); setActiveTab('activity'); }}>설정</button>
                   {walletType === 'mnemonic' && (
                     <button className="mm-menu__item" role="menuitem" onClick={() => { setShowMenu(false); setShowAccountManager(true); }}>계정 관리</button>
@@ -1223,25 +1657,32 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
                     📋 VC 추가
                   </button>
                 </div>
+
                 <div className="vc-list-container">
                   <ul className="mm-list" aria-label="VC 목록">
                     {savedVCs.length === 0 ? (
                       <li className="mm-list__item is-muted">저장된 VC가 없습니다</li>
                     ) : (
-                      savedVCs.map((vc: VerifiableCredential) => (
+                      savedVCs.map((vc: VerifiableCredential) => {
+                        const displayType = Array.isArray(vc.type)
+                          ? (vc.type.find((t: string) => t !== 'VerifiableCredential') || 'VerifiableCredential')
+                          : (typeof vc.type === 'string' ? vc.type : 'VerifiableCredential');
+                        const subjectName = (vc.credentialSubject as any)?.name || (vc.credentialSubject as any)?.studentName || '';
+                        const issuerName = (vc.issuer as any)?.name || (vc.issuer as any)?.id || '';
+                        return (
                         <li key={vc.id} className="mm-list__item">
                           <div className="mm-list__item-content" onClick={() => setSelectedVC(vc)}>
                             <div className="mm-list__item-primary">
-                              <div className="mm-list__item-title">
-                                {vc.credentialSubject?.name || vc.credentialSubject?.studentName || 'VC'}
+                              <div className="vc-item-title">
+                                {displayType}
                               </div>
-                              <div className="mm-list__item-subtitle">
-                                {vc.issuer?.name || vc.issuer?.id}
+                              <div className="vc-item-subtitle">
+                                {[subjectName, issuerName].filter(Boolean).join(' · ')}
                               </div>
                             </div>
                             <div className="mm-list__item-secondary">
-                              <div className="mm-list__item-detail">
-                                {new Date(vc.issuanceDate).toLocaleDateString()}
+                              <div className="vc-item-date">
+                                {vc.issuanceDate ? new Date(vc.issuanceDate).toLocaleDateString() : ''}
                               </div>
                             </div>
                           </div>
@@ -1259,7 +1700,8 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
                             </button>
                           </div>
                         </li>
-                      ))
+                        );
+                      })
                     )}
                   </ul>
                 </div>
@@ -1269,7 +1711,43 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
             {activeTab === 'nft' && (
               <div className="tab-content-container">
                 <ul className="mm-list" aria-label="NFT/SBT 목록">
-                  <li className="mm-list__item is-muted">발급된 SBT 또는 NFT가 없습니다</li>
+                  {savedSBTs.length === 0 ? (
+                    <li className="mm-list__item is-muted">발급된 SBT 또는 NFT가 없습니다</li>
+                  ) : (
+                    savedSBTs.map((sbt: any) => {
+                      const sbtImage = sbt.image || sbt.metadata?.image;
+                      return (
+                        <li key={sbt.id} className="mm-list__item sbt-item">
+                          <div className="mm-list__item-content" onClick={() => setSelectedSBT(sbt)}>
+                            {sbtImage && (
+                              <div className="sbt-image-container">
+                                <img src={sbtImage} alt={sbt.name || 'SBT'} className="sbt-thumbnail" />
+                              </div>
+                            )}
+                            <div className="mm-list__item-primary">
+                              <div className="vc-item-title">{sbt.name || sbt.tokenName || 'SBT'}</div>
+                              <div className="vc-item-subtitle">
+                                {sbt.description || ''}
+                              </div>
+                            </div>
+                            <div className="mm-list__item-secondary">
+                              <button 
+                                className="mm-list__item-action-btn delete-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const sbtName = sbt.name || sbt.tokenName || 'SBT';
+                                  handleDeleteConfirm(sbt.id, sbtName);
+                                }}
+                                title="SBT 삭제"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })
+                  )}
                 </ul>
               </div>
             )}
@@ -1294,10 +1772,109 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
         )}
         
         {/* VC 상세 모달 */}
-        <VCModal 
+        <VCDataModal 
           vc={selectedVC} 
           onClose={() => setSelectedVC(null)} 
         />
+        
+        {/* SBT 상세 모달 */}
+        {selectedSBT && (
+          <DataModal
+            isOpen={!!selectedSBT}
+            title={<span>{selectedSBT.name || selectedSBT.tokenName || 'SBT'}</span>}
+            onClose={() => setSelectedSBT(null)}
+          >
+            {(selectedSBT.image || selectedSBT.metadata?.image) && (
+              <div style={{marginBottom: '16px', textAlign: 'center'}}>
+                <img 
+                  src={selectedSBT.image || selectedSBT.metadata?.image} 
+                  alt={selectedSBT.name || 'SBT'} 
+                  style={{
+                    maxWidth: '100%', 
+                    maxHeight: '300px', 
+                    borderRadius: '8px',
+                    objectFit: 'contain'
+                  }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+
+            <div className="data-field">
+              <label>토큰 ID</label>
+              <div className="data-field__value">{selectedSBT.tokenId || 'N/A'}</div>
+            </div>
+
+            {selectedSBT.description && (
+              <div className="data-field">
+                <label>설명</label>
+                <div className="data-field__value">{selectedSBT.description}</div>
+              </div>
+            )}
+
+            {selectedSBT.contract && (
+              <div className="data-field">
+                <label>컨트랙트 주소</label>
+                <div className="data-field__value" style={{fontSize: '12px', wordBreak: 'break-all'}}>
+                  {selectedSBT.contract}
+                </div>
+              </div>
+            )}
+
+            {selectedSBT.symbol && (
+              <div className="data-field">
+                <label>심볼</label>
+                <div className="data-field__value">{selectedSBT.symbol}</div>
+              </div>
+            )}
+
+            {selectedSBT.issuedAt && (
+              <div className="data-field">
+                <label>발급 일시</label>
+                <div className="data-field__value">
+                  {new Date(selectedSBT.issuedAt).toLocaleString('ko-KR')}
+                </div>
+              </div>
+            )}
+
+            {selectedSBT.metadata?.attributes && Array.isArray(selectedSBT.metadata.attributes) && (
+              <div className="data-field">
+                <label>속성</label>
+                <div style={{marginTop: '8px'}}>
+                  {selectedSBT.metadata.attributes.map((attr: any, idx: number) => (
+                    <div 
+                      key={idx} 
+                      style={{
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        padding: '8px 12px',
+                        background: 'var(--panel-bg)',
+                        borderRadius: '6px',
+                        marginBottom: '6px'
+                      }}
+                    >
+                      <span style={{color: 'var(--text-muted)', fontSize: '13px'}}>
+                        {attr.trait_type || attr.name}
+                      </span>
+                      <span style={{fontWeight: 500, fontSize: '13px'}}>
+                        {attr.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="data-json" style={{marginTop: '16px'}}>
+              <label>전체 데이터</label>
+              <div className="json-field">
+                <pre>{JSON.stringify(selectedSBT, null, 2)}</pre>
+              </div>
+            </div>
+          </DataModal>
+        )}
         
         {/* VC 발급 승인 모달 */}
         {vcIssuanceRequest && (
@@ -1323,6 +1900,107 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
             onApprove={handleVCSaveApprove}
             onReject={handleVCSaveReject}
           />
+        )}
+
+        {/* Proof 제출 확인 및 진행 모달 */}
+        {proofRequest && (
+          <div className="modal-overlay visible">
+            <div className="auth-modal modal-content">
+              {proofRequest.status === 'awaiting-address' ? (
+                <>
+                  <h3>지갑 연결 및 Proof 제출</h3>
+                  <p>지갑 주소를 연결하고 Proof를 제출하시겠습니까? 약 20초 소요됩니다.</p>
+                  <div style={{fontSize: '13px', color: 'var(--text-muted)', marginTop: '12px', textAlign: 'center'}}>
+                    {proofRequest.region} · {proofRequest.vcType.toUpperCase()}
+                  </div>
+                  <div className="auth-actions">
+                    <button className="btn btn-ghost" onClick={handleProofReject}>취소</button>
+                    <button className="btn btn-primary" onClick={handleProofWithAddressApprove}>확인</button>
+                  </div>
+                </>
+              ) : proofRequest.status === 'awaiting-confirm' ? (
+                <>
+                  <h3>Proof 제출 확인</h3>
+                  <p>선택한 VC로부터 Proof를 제출하시겠습니까? 약 20초 소요됩니다.</p>
+                  <div className="auth-actions">
+                    <button className="btn btn-ghost" onClick={handleProofReject}>취소</button>
+                    <button className="btn btn-primary" onClick={handleProofApprove}>확인</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3>
+                    {proofRequest.status === 'generating-proof' ? 'Proof 생성 중입니다' : 
+                     proofRequest.status === 'submitting-tx' ? 'Proof를 제출하는 중입니다' : 
+                     proofRequest.status === 'completed' ? '완료!' :
+                     proofRequest.status === 'failed' ? '실패' : '처리 중'}
+                  </h3>
+                  <div style={{margin: '20px 0'}}>
+                    <div style={{fontSize: '13px', color: 'var(--text-muted)', marginBottom: '12px', textAlign: 'center'}}>
+                      {proofRequest.region} · {proofRequest.vcType.toUpperCase()}
+                    </div>
+                    {(proofRequest.status === 'generating-proof' || proofRequest.status === 'submitting-tx') && (
+                      <div style={{height: 8, background: 'var(--panel-border)', borderRadius: 8, overflow: 'hidden'}}>
+                        <div style={{
+                          height: '100%',
+                          width: `${proofRequest.status === 'generating-proof' ? 50 : 90}%`,
+                          background: 'linear-gradient(90deg, #6366f1, #34d399)',
+                          transition: 'width 0.4s ease'
+                        }} />
+                      </div>
+                    )}
+                    {proofRequest.status === 'submitting-tx' && proofRequest.contractInfo ? (
+                      <div style={{marginTop: '12px', padding: '12px', background: 'var(--panel-bg)', borderRadius: '8px', border: '1px solid var(--panel-border)'}}>
+                        <div style={{fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: '600'}}>트랜잭션 정보</div>
+                        <div style={{fontSize: '12px', color: 'var(--text)', marginBottom: '6px'}}>
+                          <span style={{color: 'var(--text-muted)'}}>컨트랙트:</span>{' '}
+                          <span style={{fontFamily: 'monospace', wordBreak: 'break-all'}}>{proofRequest.contractInfo.address}</span>
+                        </div>
+                        <div style={{fontSize: '12px', color: 'var(--text)', marginBottom: '6px'}}>
+                          <span style={{color: 'var(--text-muted)'}}>함수:</span>{' '}
+                          <span style={{fontFamily: 'monospace'}}>{proofRequest.contractInfo.functionName}</span>
+                        </div>
+                        {proofRequest.contractInfo.description && (
+                          <div style={{fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: '1.4'}}>
+                            {proofRequest.contractInfo.description}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px', textAlign: 'center'}}>
+                        {proofRequest.status === 'generating-proof' ? '약 10초 소요...' : 
+                         proofRequest.status === 'submitting-tx' ? '트랜잭션 전송 중... 블록 확정 대기...' : 
+                         proofRequest.status === 'completed' ? '완료!' : 
+                         proofRequest.status === 'failed' ? '오류가 발생했습니다' : '처리 중...'}
+                      </div>
+                    )}
+                  </div>
+                  <div className="auth-actions">
+                    {(proofRequest.status === 'completed' || proofRequest.status === 'failed') ? (
+                      <button 
+                        className="btn btn-primary" 
+                        onClick={() => {
+                          setProofRequest(null);
+                          chrome.storage.local.remove(['pendingProofRequest']);
+                        }}
+                        style={{width: '100%'}}
+                      >
+                        확인
+                      </button>
+                    ) : (
+                      <button 
+                        className="btn btn-ghost" 
+                        onClick={handleProofReject}
+                        style={{width: '100%'}}
+                      >
+                        취소
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         )}
         
         {/* 수동 VC 추가 모달 */}

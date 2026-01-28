@@ -1,0 +1,62 @@
+{
+  "driver": {
+    "@context": ["https://www.w3.org/ns/credentials/v2","https://www.w3.org/ns/credentials/examples/v2"],
+    "id": "demo-driver-1",
+    "type": ["VerifiableCredential","DriverLicenseCredential"],
+    "issuer": {"id": "https://police.example.kr/dl","name": "경찰청","publicKey": {"Ax": "0x2a1f...Ax","Ay": "0x3b4e...Ay"}},
+    "issuanceDate": "2025-10-01T00:00:00.000Z",
+    "validFrom": "2025-10-01T00:00:00.000Z",
+    "validUntil": "2026-10-01T00:00:00.000Z",
+    "credentialSubject": {
+      "id": "did:ethr:0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "walletAddress": "0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "name": "홍길동",
+      "birthDate": "1990-05-02",
+      "sex": "male",
+      "residentialAddress": "대전시 유성구",
+      "driverLicense": {"number": "11-90-123456-00","class": "2종 보통","issuedOn": "2012-06-15","expiryOn": "2032-06-15","issuer": "대전광역시경찰청장"}
+    },
+    "proof": {"type": "BabyJubJubSMTSignature2024","created": "2025-10-01T00:00:00.000Z","proofPurpose": "verificationMethod","verificationMethod": "https://police.example.kr/dl/keys/1","merkleRoot": "0","signature": {"R8x": "0","R8y": "0","S": "0"}}
+  },
+  "engineer": {
+    "@context": ["https://www.w3.org/ns/credentials/v2","https://www.w3.org/ns/credentials/examples/v2"],
+    "id": "demo-engineer-1",
+    "type": ["VerifiableCredential","ProfessionalEngineerCredential"],
+    "issuer": {"id": "https://hrdkorea.example.kr/hrd","name": "한국산업인력공단","publicKey": {"Ax": "0x2a1f...Ax","Ay": "0x3b4e...Ay"}},
+    "issuanceDate": "2025-10-01T00:00:00.000Z",
+    "validFrom": "2025-10-01T00:00:00.000Z",
+    "validUntil": "2026-10-01T00:00:00.000Z",
+    "credentialSubject": {
+      "id": "did:ethr:0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "walletAddress": "0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "name": "홍길동",
+      "birthDate": "1990-05-02",
+      "sex": "male",
+      "professionalLicense": {"name": "정보처리기사","certificateId": "C-2010-123456","issuedOn": "2015-11-21","issuer": "한국산업인력공단"}
+    },
+    "proof": {"type": "BabyJubJubSMTSignature2024","created": "2025-10-01T00:00:00.000Z","proofPurpose": "verificationMethod","verificationMethod": "https://hrdkorea.example.kr/keys/1","merkleRoot": "0","signature": {"R8x": "0","R8y": "0","S": "0"}}
+  },
+  "diploma": {
+    "@context": ["https://www.w3.org/ns/credentials/v2","https://www.w3.org/ns/credentials/examples/v2"],
+    "id": "demo-diploma-1",
+    "type": ["VerifiableCredential","UniversityDiplomaCredential"],
+    "issuer": {"id": "https://cnu.ac.kr/registrar","name": "충남대학교","publicKey": {"Ax": "0x2a1f...Ax","Ay": "0x3b4e...Ay"}},
+    "issuanceDate": "2025-10-01T00:00:00.000Z",
+    "validFrom": "2025-10-01T00:00:00.000Z",
+    "validUntil": "2026-10-01T00:00:00.000Z",
+    "credentialSubject": {
+      "id": "did:ethr:0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "walletAddress": "0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "name": "홍길동",
+      "birthDate": "1990-05-02",
+      "sex": "male",
+      "studentId": "201612345",
+      "university": "충남대학교",
+      "major": "컴퓨터공학과",
+      "degree": "학사",
+      "graduationDate": "2020-02-15"
+    },
+    "proof": {"type": "BabyJubJubSMTSignature2024","created": "2025-10-01T00:00:00.000Z","proofPurpose": "verificationMethod","verificationMethod": "https://cnu.ac.kr/registrar/keys/1","merkleRoot": "0","signature": {"R8x": "0","R8y": "0","S": "0"}}
+  }
+}
+
