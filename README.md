@@ -125,3 +125,4 @@ This project is private and proprietary. All rights reserved.
 ## 🆘 Support
 
 For support and questions, please create an issue in this repository.
+"# did-wallet-app" 
