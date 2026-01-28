@@ -1,6 +1,6 @@
 {
   "name": "did-wallet-app",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "DID Wallet Application - Desktop and Chrome Extension",
   "private": true,
   "scripts": {
