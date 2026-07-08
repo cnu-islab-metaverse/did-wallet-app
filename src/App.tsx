@@ -2,35 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css';
 import './styles/network.css';
 
-// Chrome Extension API 타입 선언
-declare global {
-  const chrome: {
-    storage: {
-      local: {
-        get: (keys: string | string[] | null) => Promise<{ [key: string]: any }>;
-        set: (items: { [key: string]: any }) => Promise<void>;
-        remove: (keys: string | string[]) => Promise<void>;
-        clear: () => Promise<void>;
-      };
-    };
-    runtime: {
-      sendMessage: (message: any) => Promise<any>;
-      onMessage: {
-        addListener: (callback: (message: any, sender: any, sendResponse: any) => void) => void;
-        removeListener: (callback: (message: any, sender: any, sendResponse: any) => void) => void;
-      };
-      id: string;
-      lastError?: { message: string };
-    };
-    action: {
-      openPopup: () => Promise<void>;
-    };
-    tabs?: {
-      query: (queryInfo: any) => Promise<any[]>;
-      sendMessage: (tabId: number, message: any) => Promise<any>;
-    };
-  };
-}
 import { createAndStoreWallet, getAddress, getProvider, importWalletFromMnemonic, importWalletFromPrivateKey, initDevWallet, isUnlocked, lockWallet, resetStoredState, unlockWithPassword, clearAllStorageData, hasEncryptedKeystore, getWalletType, getRuntimeWallet } from './lib/wallet';
 import { Interface } from 'ethers';
 import { hdWalletService } from './lib/hdWalletService';
@@ -38,6 +9,7 @@ import { isDevModeEnabled } from './config';
 import { APP_CONFIG } from './config/app.config';
 import { STORAGE_KEYS } from './config/storage';
 import { storageAdapter } from './lib/storageAdapter';
+import { runtimeBridge } from './lib/runtimeBridge';
 import { NetworkSelector } from './components/NetworkSelector';
 import { NetworkConfig } from './types/network';
 import { toastManager } from './utils/toast';
@@ -77,14 +49,7 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
   };
 
   const [theme, setTheme] = useState<'light' | 'dark'>(getInitialTheme);
-  // 마지막으로 열었던 탭을 localStorage에서 복원
-  const getInitialTab = (): 'tokens' | 'vc' | 'nft' | 'activity' => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.lastActiveTab);
-      if (saved === 'tokens' || saved === 'vc' || saved === 'nft' || saved === 'activity') return saved as any;
-    } catch {}
-    return APP_CONFIG.defaults.lastActiveTab;
-  };
+  const getInitialTab = (): 'tokens' | 'vc' | 'nft' | 'activity' => APP_CONFIG.defaults.lastActiveTab;
 
   const [activeTab, setActiveTab] = useState<'tokens' | 'vc' | 'nft' | 'activity'>(getInitialTab);
   const [savedSBTs, setSavedSBTs] = useState<any[]>([]);
@@ -196,12 +161,24 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
 
   useEffect(() => {
     (async () => {
+      try {
+        const saved = await storageAdapter.get(STORAGE_KEYS.lastActiveTab);
+        if (saved === 'tokens' || saved === 'vc' || saved === 'nft' || saved === 'activity') {
+          setActiveTab(saved);
+        }
+      } catch {}
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    (async () => {
       try { await storageAdapter.set(STORAGE_KEYS.theme, theme); } catch {}
       onThemeChange?.(theme);
     })();
   }, [theme, onThemeChange]);
 
-  // activeTab 변경 시 localStorage에 저장
+  // Persist active tab
   useEffect(() => {
     (async () => { try { await storageAdapter.set(STORAGE_KEYS.lastActiveTab, activeTab); } catch {} })();
   }, [activeTab]);
@@ -250,10 +227,10 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
             setProofRequest(null);
           } else {
             (async () => {
-              const result = await chrome.storage.local.get(['pendingProofRequest']);
-              console.log('[Popup] Storage에서 읽어온 pendingProofRequest:', (result as any).pendingProofRequest);
-              if ((result as any).pendingProofRequest) {
-                setProofRequest((result as any).pendingProofRequest);
+              const result = await storageAdapter.getMany(['pendingProofRequest']);
+              console.log('[Popup] Storage에서 읽어온 pendingProofRequest:', result.pendingProofRequest);
+              if (result.pendingProofRequest) {
+                setProofRequest(result.pendingProofRequest);
               } else {
                 setProofRequest(null);
               }
@@ -262,8 +239,8 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
         } else if (message.type === 'SBT_SAVED') {
           // reload SBTs and switch to NFT tab on completion
           (async () => {
-            const result = await chrome.storage.local.get(['savedSBTs']);
-            setSavedSBTs(result.savedSBTs || []);
+            const saved = await storageAdapter.get<any[]>('savedSBTs');
+            setSavedSBTs(saved || []);
             setActiveTab('nft');
             toastManager.show('SBT가 저장되었습니다');
           })();
@@ -409,7 +386,7 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
                 }
               }
               
-              chrome.runtime.sendMessage({
+              runtimeBridge.sendMessage({
                 type: 'PROOF_TX_RESPONSE',
                 success: true,
                 txHash: receipt.hash || (receipt as any).transactionHash,
@@ -419,7 +396,7 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
               
             } catch (error: any) {
               console.error('[Popup] Proof 트랜잭션 전송 실패:', error);
-              chrome.runtime.sendMessage({
+              runtimeBridge.sendMessage({
                 type: 'PROOF_TX_RESPONSE',
                 success: false,
                 error: error.message || '트랜잭션 전송 실패'
@@ -429,10 +406,10 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
         }
       };
 
-      chrome.runtime.onMessage.addListener(handleBackgroundMessage);
+      runtimeBridge.addListener(handleBackgroundMessage);
       
       return () => {
-        chrome.runtime.onMessage.removeListener(handleBackgroundMessage);
+        runtimeBridge.removeListener(handleBackgroundMessage);
       };
     }
   }, [platform]);
@@ -440,84 +417,46 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
   // Load saved VCs function
   const loadSavedVCs = useCallback(async () => {
     try {
-      if (platform === 'extension') {
-        const result = await chrome.storage.local.get(['savedVCs']);
-        let vcs = result.savedVCs || [];
-        // Seed dev VCs when none exist
-        if (APP_CONFIG.dev?.seedVCs && vcs.length === 0) {
-          try {
-            const { default: demo } = await import('./config/demo-vcs.json');
-            const seeded: any[] = [demo.driver, demo.engineer, demo.diploma].filter(Boolean);
-            if (seeded.length > 0) {
-              await chrome.storage.local.set({ savedVCs: seeded });
-              vcs = seeded;
-            }
-          } catch {}
-        }
-        setSavedVCs(vcs);
-      } else {
-        // Desktop: localStorage 사용
-        const savedVCsJson = localStorage.getItem('savedVCs');
-        let vcs = savedVCsJson ? JSON.parse(savedVCsJson) : [];
-        if (APP_CONFIG.dev?.seedVCs && vcs.length === 0) {
-          try {
-            const { default: demo } = await import('./config/demo-vcs.json');
-            const seeded: any[] = [demo.driver, demo.engineer, demo.diploma].filter(Boolean);
-            if (seeded.length > 0) {
-              localStorage.setItem('savedVCs', JSON.stringify(seeded));
-              vcs = seeded;
-            }
-          } catch {}
-        }
-        setSavedVCs(vcs);
+      const saved = await storageAdapter.get<any[]>('savedVCs');
+      let vcs = saved || [];
+      if (APP_CONFIG.dev?.seedVCs && vcs.length === 0) {
+        try {
+          const { default: demo } = await import('./config/demo-vcs.json');
+          const seeded: any[] = [demo.driver, demo.engineer, demo.diploma].filter(Boolean);
+          if (seeded.length > 0) {
+            await storageAdapter.set('savedVCs', seeded);
+            vcs = seeded;
+          }
+        } catch {}
       }
+      setSavedVCs(vcs);
     } catch (error) {
       console.error('VC 로드 실패:', error);
     }
-  }, [platform]);
+  }, []);
 
   // Load saved SBTs
   const loadSavedSBTs = useCallback(async () => {
     try {
-      if (platform === 'extension') {
-        const result = await chrome.storage.local.get(['savedSBTs']);
-        let sbts = result.savedSBTs || [];
-        // Seed dev SBTs when none exist
-        if (APP_CONFIG.dev?.seedVCs && sbts.length === 0) {
-          try {
-            const { default: demoSBTs } = await import('./config/demo-sbts.json');
-            const seeded: any[] = [demoSBTs.cnu_graduation, demoSBTs.daejeon_resident].filter(Boolean);
-            if (seeded.length > 0) {
-              await chrome.storage.local.set({ savedSBTs: seeded });
-              sbts = seeded;
-            }
-          } catch (err) {
-            console.error('Demo SBT 로드 실패:', err);
+      const saved = await storageAdapter.get<any[]>('savedSBTs');
+      let sbts = saved || [];
+      if (APP_CONFIG.dev?.seedVCs && sbts.length === 0) {
+        try {
+          const { default: demoSBTs } = await import('./config/demo-sbts.json');
+          const seeded: any[] = [demoSBTs.cnu_graduation, demoSBTs.daejeon_resident].filter(Boolean);
+          if (seeded.length > 0) {
+            await storageAdapter.set('savedSBTs', seeded);
+            sbts = seeded;
           }
+        } catch (err) {
+          console.error('Demo SBT 로드 실패:', err);
         }
-        setSavedSBTs(sbts);
-      } else {
-        // Desktop: localStorage 사용
-        const json = localStorage.getItem('savedSBTs');
-        let sbts = json ? JSON.parse(json) : [];
-        if (APP_CONFIG.dev?.seedVCs && sbts.length === 0) {
-          try {
-            const { default: demoSBTs } = await import('./config/demo-sbts.json');
-            const seeded: any[] = [demoSBTs.cnu_graduation, demoSBTs.daejeon_resident].filter(Boolean);
-            if (seeded.length > 0) {
-              localStorage.setItem('savedSBTs', JSON.stringify(seeded));
-              sbts = seeded;
-            }
-          } catch (err) {
-            console.error('Demo SBT 로드 실패:', err);
-          }
-        }
-        setSavedSBTs(sbts);
       }
+      setSavedSBTs(sbts);
     } catch (error) {
       console.error('SBT 로드 실패:', error);
     }
-  }, [platform]);
+  }, []);
 
   // Load saved VCs on mount
   useEffect(() => {
@@ -530,15 +469,15 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
     if (platform === 'extension') {
       const checkPendingRequests = async () => {
         try {
-          const result = await chrome.storage.local.get(['pendingVCIssuance', 'pendingVCSave', 'pendingAddressRequest', 'pendingProofRequest']);
+          const result = await storageAdapter.getMany(['pendingVCIssuance', 'pendingVCSave', 'pendingAddressRequest', 'pendingProofRequest']);
           
-          // VC 발급 요청 확인
+          // Check pending VC issuance request
           const pendingVCIssuance = result.pendingVCIssuance;
           if (pendingVCIssuance) {
             const now = Date.now();
             const requestAge = now - pendingVCIssuance.timestamp;
             
-            if (requestAge < 5 * 60 * 1000) { // 5분
+            if (requestAge < 5 * 60 * 1000) { // 5 minutes
               setVcIssuanceRequest({
                 vc: pendingVCIssuance.vc,
                 student: pendingVCIssuance.student,
@@ -548,18 +487,18 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
               });
               
             } else {
-              await chrome.storage.local.remove(['pendingVCIssuance']);
+              await storageAdapter.remove('pendingVCIssuance');
             }
           }
           
-          // VC 저장 요청 확인 (근본적 해결)
+          // Check pending VC save request
           const pendingVCSave = result.pendingVCSave;
           if (pendingVCSave) {
             const now = Date.now();
             const requestAge = now - pendingVCSave.timestamp;
             
-            if (requestAge < 5 * 60 * 1000) { // 5분
-              // 모달 표시
+            if (requestAge < 5 * 60 * 1000) { // 5 minutes
+              // Show modal
               setVcSaveRequest({
                 vc: pendingVCSave.vc,
                 origin: pendingVCSave.origin,
@@ -569,30 +508,30 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
               });
               
               
-              // 즉시 pendingVCSave 제거 (중복 표시 방지)
-              await chrome.storage.local.remove(['pendingVCSave']);
+              // Remove pending request to avoid duplicates
+              await storageAdapter.remove('pendingVCSave');
             } else {
-              await chrome.storage.local.remove(['pendingVCSave']);
+              await storageAdapter.remove('pendingVCSave');
             }
           }
           
-          // 주소 요청 확인
+          // Check pending address request
           const pendingAddressRequest = result.pendingAddressRequest;
           if (pendingAddressRequest) {
             const now = Date.now();
             const requestAge = now - pendingAddressRequest.timestamp;
             
-            if (requestAge < 5 * 60 * 1000) { // 5분
+            if (requestAge < 5 * 60 * 1000) { // 5 minutes
               setAddressRequest({
                 origin: pendingAddressRequest.origin
               });
               
             } else {
-              await chrome.storage.local.remove(['pendingAddressRequest']);
+              await storageAdapter.remove('pendingAddressRequest');
             }
           }
 
-          // Proof 제출 요청 확인
+          // Check pending proof request
           const pendingProofRequest = result.pendingProofRequest;
           if (pendingProofRequest) {
             setProofRequest(pendingProofRequest);
@@ -611,21 +550,12 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
     if (!vcIssuanceRequest) return;
     
     try {
-      // 백그라운드에 승인 응답 전송
-      await chrome.runtime.sendMessage({
+      await runtimeBridge.sendMessage({
         type: 'VC_ISSUANCE_RESPONSE',
         approved: true
       });
       
-      // VC 목록 새로고침
-      if (platform === 'extension') {
-        const result = await chrome.storage.local.get(['savedVCs']);
-        setSavedVCs(result.savedVCs || []);
-      } else {
-        const savedVCsJson = localStorage.getItem('savedVCs');
-        const vcs = savedVCsJson ? JSON.parse(savedVCsJson) : [];
-        setSavedVCs(vcs);
-      }
+      await loadSavedVCs();
       
       setVcIssuanceRequest(null);
     } catch (error) {
@@ -637,8 +567,7 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
     if (!vcIssuanceRequest) return;
     
     try {
-      // 백그라운드에 거절 응답 전송
-      await chrome.runtime.sendMessage({
+      await runtimeBridge.sendMessage({
         type: 'VC_ISSUANCE_RESPONSE',
         approved: false,
         error: '사용자가 거절했습니다'
@@ -676,11 +605,11 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
     }
   };
 
-  // Proof 제출 승인/거절
+  // Proof approval/decline
   const handleProofApprove = async () => {
     try {
       console.log('[Popup] Proof 승인 버튼 클릭, 백그라운드에 메시지 전송...');
-      await chrome.runtime.sendMessage({ type: 'PROOF_SUBMISSION_RESPONSE', approved: true });
+      await runtimeBridge.sendMessage({ type: 'PROOF_SUBMISSION_RESPONSE', approved: true });
       console.log('[Popup] 백그라운드 응답 받음, 상태는 background에서 업데이트됨');
       // 상태는 background에서 업데이트됨
     } catch (error) {
@@ -688,12 +617,12 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
     }
   };
 
-  // 주소 + Proof 통합 승인
+  // Combined address + proof approval
   const handleProofWithAddressApprove = async () => {
     try {
       console.log('[Popup] 주소 + Proof 승인 버튼 클릭, 백그라운드에 메시지 전송...');
       const currentAddress = getAddress();
-      await chrome.runtime.sendMessage({ 
+      await runtimeBridge.sendMessage({ 
         type: 'PROOF_WITH_ADDRESS_RESPONSE', 
         approved: true, 
         address: currentAddress 
@@ -710,46 +639,33 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
       const currentProofStatus = proofRequest?.status;
       
       if (currentProofStatus === 'awaiting-address') {
-        // 통합 요청 거절
-        await chrome.runtime.sendMessage({ 
+        await runtimeBridge.sendMessage({ 
           type: 'PROOF_WITH_ADDRESS_RESPONSE', 
           approved: false, 
           error: '사용자가 거절했습니다' 
         });
       } else {
-        // 일반 Proof 요청 거절
-        await chrome.runtime.sendMessage({ 
+        await runtimeBridge.sendMessage({ 
           type: 'PROOF_SUBMISSION_RESPONSE', 
           approved: false, 
           error: '사용자가 거절했습니다' 
         });
       }
       
-      await chrome.storage.local.remove(['pendingProofRequest']);
+      await storageAdapter.remove('pendingProofRequest');
       setProofRequest(null);
     } catch (error) {
       console.error('Proof 제출 거절 실패:', error);
     }
   };
 
-  // SBT 삭제 핸들러
+  // SBT delete handler
   const handleDeleteSBT = async (sbtId: string) => {
     try {
-      if (platform === 'extension') {
-        const result = await chrome.storage.local.get(['savedSBTs']);
-        const currentSBTs = result.savedSBTs || [];
-        const updatedSBTs = currentSBTs.filter((sbt: any) => sbt.id !== sbtId);
-        await chrome.storage.local.set({ savedSBTs: updatedSBTs });
-        setSavedSBTs(updatedSBTs);
-        toastManager.show('SBT가 삭제되었습니다');
-      } else {
-        // Desktop: 직접 삭제
-        const updatedSBTs = savedSBTs.filter((sbt: any) => sbt.id !== sbtId);
-        setSavedSBTs(updatedSBTs);
-        // localStorage에 저장
-        localStorage.setItem('savedSBTs', JSON.stringify(updatedSBTs));
-        toastManager.show('SBT가 삭제되었습니다');
-      }
+      const updatedSBTs = savedSBTs.filter((sbt: any) => sbt.id !== sbtId);
+      await storageAdapter.set('savedSBTs', updatedSBTs);
+      setSavedSBTs(updatedSBTs);
+      toastManager.show('SBT가 삭제되었습니다');
     } catch (error) {
       console.error('SBT 삭제 실패:', error);
       toastManager.show('SBT 삭제에 실패했습니다');
@@ -795,7 +711,7 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
   const saveVC = async (vc: VerifiableCredential, origin: string) => {
     if (platform === 'extension') {
       // Extension: 백그라운드 스크립트를 통해 저장
-      const response = await chrome.runtime.sendMessage({
+      const response = await runtimeBridge.sendMessage({
         type: 'SAVE_VC_DIRECT',
         vc: vc,
         origin: origin,
@@ -826,9 +742,8 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
           savedVC.id === duplicateVC.id ? updatedVC : savedVC
         );
         
+        await storageAdapter.set('savedVCs', updatedVCs);
         setSavedVCs(updatedVCs);
-        // localStorage에 저장
-        localStorage.setItem('savedVCs', JSON.stringify(updatedVCs));
         toastManager.show('기존 VC가 새 VC로 덮어쓰기되었습니다');
       } else {
         // 새로운 VC 추가
@@ -840,9 +755,8 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
         };
         
         const updatedVCs = [...savedVCs, newVC];
+        await storageAdapter.set('savedVCs', updatedVCs);
         setSavedVCs(updatedVCs);
-        // localStorage에 저장
-        localStorage.setItem('savedVCs', JSON.stringify(updatedVCs));
         toastManager.show('VC가 성공적으로 추가되었습니다');
       }
     }
@@ -882,15 +796,13 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
     try {
       if (platform === 'extension') {
         // Extension: 백그라운드 스크립트에 삭제 요청
-        const response = await chrome.runtime.sendMessage({
+        const response = await runtimeBridge.sendMessage({
           type: 'DELETE_VC',
           vcId: vcId
         });
         
         if (response && response.success) {
-          // VC 목록 새로고침
-          const result = await chrome.storage.local.get(['savedVCs']);
-          setSavedVCs(result.savedVCs || []);
+          await loadSavedVCs();
           toastManager.show('VC가 삭제되었습니다');
         } else {
           toastManager.show(`VC 삭제 실패: ${response?.error || '알 수 없는 오류'}`);
@@ -898,9 +810,8 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
       } else {
         // Desktop: 직접 삭제
         const updatedVCs = savedVCs.filter((vc: VerifiableCredential) => vc.id !== vcId);
+        await storageAdapter.set('savedVCs', updatedVCs);
         setSavedVCs(updatedVCs);
-        // localStorage에 저장
-        localStorage.setItem('savedVCs', JSON.stringify(updatedVCs));
         toastManager.show('VC가 삭제되었습니다');
       }
     } catch (error: any) {
@@ -1078,17 +989,14 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
           }
         },
         getChromeStorage: async () => {
-          if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-            try {
-              const result = await chrome.storage.local.get(null as any);
-              console.log('Chrome storage data:', result);
-              return result;
-            } catch (e) {
-              console.error('Failed to get Chrome storage data:', e);
-              return null;
-            }
+          try {
+            const result = await storageAdapter.getAll();
+            console.log('Storage data:', result);
+            return result;
+          } catch (e) {
+            console.error('Failed to get storage data:', e);
+            return null;
           }
-          return null;
         }
       };
     }
@@ -1114,11 +1022,8 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
     if (platform === 'extension') {
       // Send user activity to background script
       const sendActivity = () => {
-        if (unlocked && typeof chrome !== 'undefined' && chrome.runtime) {
-          chrome.runtime.sendMessage({ type: 'USER_ACTIVITY' }).catch(() => {
-            // Ignore errors if background script is not available
-          });
-        }
+        if (!unlocked) return;
+        runtimeBridge.sendMessage({ type: 'USER_ACTIVITY' }).catch(() => {});
       };
 
       const events: Array<keyof WindowEventMap> = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'];
@@ -1134,15 +1039,11 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
         }
       };
 
-      if (typeof chrome !== 'undefined' && chrome.runtime) {
-        chrome.runtime.onMessage.addListener(handleMessage);
-      }
+      runtimeBridge.addListener(handleMessage);
 
       return () => {
         events.forEach((e) => window.removeEventListener(e, sendActivity));
-        if (typeof chrome !== 'undefined' && chrome.runtime) {
-          chrome.runtime.onMessage.removeListener(handleMessage);
-        }
+        runtimeBridge.removeListener(handleMessage);
       };
     } else {
       // Desktop app - use local timer
@@ -1247,12 +1148,7 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
       setPrivateKey('');
       void getProvider();
       
-      // Notify background script that wallet is unlocked
-      if (platform === 'extension' && typeof chrome !== 'undefined' && chrome.runtime) {
-        chrome.runtime.sendMessage({ type: 'WALLET_UNLOCKED' }).catch(() => {
-          // Ignore errors if background script is not available
-        });
-      }
+      runtimeBridge.sendMessage({ type: 'WALLET_UNLOCKED' }).catch(() => {});
     } catch (e: any) {
       console.error('Unlock error:', e);
       setError(formatUnlockError(e));
@@ -1282,10 +1178,7 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
     setStep('login');
     setForceCloseDropdowns((prev: boolean) => !prev);
     
-    // 백그라운드 스크립트에 잠금 알림
-    if (platform === 'extension' && typeof chrome !== 'undefined' && chrome.runtime) {
-      chrome.runtime.sendMessage({ type: 'WALLET_LOCKED' }).catch(() => {});
-    }
+    runtimeBridge.sendMessage({ type: 'WALLET_LOCKED' }).catch(() => {});
   };
 
   const handleLogoutConfirm = () => {
@@ -1333,8 +1226,7 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
   };
 
   const handleAddressRequestApprove = (approvedAddress: string) => {
-    // 백그라운드 스크립트에 승인 응답 전송
-    chrome.runtime.sendMessage({
+    runtimeBridge.sendMessage({
       type: 'ADDRESS_REQUEST_RESPONSE',
       success: true,
       address: approvedAddress
@@ -1345,8 +1237,7 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
   };
 
   const handleAddressRequestReject = () => {
-    // 백그라운드 스크립트에 거절 응답 전송
-    chrome.runtime.sendMessage({
+    runtimeBridge.sendMessage({
       type: 'ADDRESS_REQUEST_RESPONSE',
       success: false,
       error: '사용자가 연결을 거절했습니다'
@@ -1981,7 +1872,7 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
                         className="btn btn-primary" 
                         onClick={() => {
                           setProofRequest(null);
-                          chrome.storage.local.remove(['pendingProofRequest']);
+                          void storageAdapter.remove('pendingProofRequest');
                         }}
                         style={{width: '100%'}}
                       >
@@ -2025,7 +1916,7 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
             origin={addressRequest.origin}
             onApprove={async () => {
               try {
-                await chrome.runtime.sendMessage({
+                await runtimeBridge.sendMessage({
                   type: 'ADDRESS_REQUEST_RESPONSE',
                   success: true,
                   address: getAddress()
@@ -2037,7 +1928,7 @@ const AppContent = ({ platform = 'desktop', extensionActions, onThemeChange }: A
             }}
             onReject={async () => {
               try {
-                await chrome.runtime.sendMessage({
+                await runtimeBridge.sendMessage({
                   type: 'ADDRESS_REQUEST_RESPONSE',
                   success: false,
                   error: '사용자가 거절했습니다'

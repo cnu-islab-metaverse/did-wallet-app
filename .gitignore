@@ -317,3 +317,6 @@ contract/out/
 # yarn.lock
 # package-lock.json
 # pnpm-lock.yaml
+
+# Research deliverables (grant documents, do not publish)
+연구과제산출물/

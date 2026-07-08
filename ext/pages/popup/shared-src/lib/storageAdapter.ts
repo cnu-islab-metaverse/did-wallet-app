@@ -61,6 +61,15 @@ export const storageAdapter = {
     }
     return idbGet<T>(key)
   },
+  async getMany(keys: string[]): Promise<Record<string, any>> {
+    if (isChromeStorageAvailable()) {
+      // @ts-ignore
+      const result = await chrome.storage.local.get(keys)
+      return result || {}
+    }
+    const entries = await Promise.all(keys.map(async (key) => [key, await idbGet(key)]))
+    return Object.fromEntries(entries)
+  },
   async set<T = any>(key: string, value: T): Promise<void> {
     if (isChromeStorageAvailable()) {
       // @ts-ignore
@@ -69,6 +78,14 @@ export const storageAdapter = {
     }
     await idbSet<T>(key, value)
   },
+  async setMany(items: Record<string, any>): Promise<void> {
+    if (isChromeStorageAvailable()) {
+      // @ts-ignore
+      await chrome.storage.local.set(items)
+      return
+    }
+    await Promise.all(Object.entries(items).map(([key, value]) => idbSet(key, value)))
+  },
   async remove(key: string): Promise<void> {
     if (isChromeStorageAvailable()) {
       // @ts-ignore
@@ -76,6 +93,14 @@ export const storageAdapter = {
       return
     }
     await idbRemove(key)
+  },
+  async removeMany(keys: string[]): Promise<void> {
+    if (isChromeStorageAvailable()) {
+      // @ts-ignore
+      await chrome.storage.local.remove(keys)
+      return
+    }
+    await Promise.all(keys.map((key) => idbRemove(key)))
   },
 
   async getAll(): Promise<Record<string, any>> {
