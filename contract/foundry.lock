@@ -1,0 +1,14 @@
+{
+  "lib\\ERC5192": {
+    "tag": {
+      "name": "v0.0.1",
+      "rev": "ac9ba4a08d3fb9fb7799a7ec5971a1712b9d1815"
+    }
+  },
+  "lib/forge-std": {
+    "rev": "8f24d6b04c92975e0795b5868aa0d783251cdeaa"
+  },
+  "lib/openzeppelin-contracts": {
+    "rev": "dbb6104ce834628e473d2173bbc9d47f81a9eec3"
+  }
+}

@@ -304,10 +304,11 @@ proof_example.txt
 **/*.sqlite
 **/*.sqlite3
 
-# Contract specific
-contract/broadcast/
+# Contract specific (contract/.gitignore intentionally tracks broadcast/ deploy logs)
 contract/cache/
 contract/out/
+contract/lib/
+contract/meta/
 
 # Private keys and secrets
 **/*private*.key
