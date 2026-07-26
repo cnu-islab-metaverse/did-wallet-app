@@ -24,3 +24,10 @@ function regionalUnivCodes() {
         30   // 충북대학교
     ];
 }
+
+// 지역청년패스 대상 거주지 — 법정동코드 시도 2자리(행정안전부/행정표준코드). 대전광역시=30.
+function daejeonCode() { return 30; }
+
+// 지역청년 나이 기준(법적 청년): 만 19세 이상 34세 이하.
+function youthMinAge() { return 19; }
+function youthMaxAge() { return 34; }

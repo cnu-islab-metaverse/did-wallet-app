@@ -6,7 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { buildWitness, signVc, REGIONAL_UNIVS } from './witness.mjs';
+import { buildWitness, signVc, REGIONAL_UNIVS, regionCodeFromAddress } from './witness.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VC_PATH = path.join(__dirname, 'vc.json');
@@ -26,7 +26,8 @@ async function main() {
   vc.proof.signature = { R8x: sig.R8x.toString(), R8y: sig.R8y.toString(), S: sig.S.toString() };
   fs.writeFileSync(VC_PATH, JSON.stringify(vc, null, 2));
 
-  console.log(`[sign] 샘플 VC: ${subj.name} · ${subj.university} · age=${w.age} · ${subj.graduationDate ? '졸업' : '재학'}`);
+  const birthYmd = subj.birthDate.slice(0, 10);
+  console.log(`[sign] 샘플 VC: ${subj.name} · ${subj.university} · 생년월일 ${birthYmd} · 거주 시도코드 ${regionCodeFromAddress(subj.residentialAddress)} · validUntil ${vc.validUntil.slice(0, 10)}`);
   console.log('[sign] 발급기관 공개키 (registry.circom 와 일치해야 함):');
   console.log(`  Ax = ${sig.Ax}`);
   console.log(`  Ay = ${sig.Ay}`);
