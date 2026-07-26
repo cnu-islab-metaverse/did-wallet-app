@@ -291,6 +291,7 @@ desktop/dist-electron/
 memo.txt
 **/memo.txt
 vc.json
+!circuits/vc.json
 ack.json
 proof_example.txt
 

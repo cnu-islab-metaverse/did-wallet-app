@@ -1,0 +1,46 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    "https://www.w3.org/ns/credentials/examples/v2"
+  ],
+  "id": "demo-diploma-1",
+  "type": [
+    "VerifiableCredential",
+    "UniversityDiplomaCredential"
+  ],
+  "issuer": {
+    "id": "https://cnu.ac.kr/registrar",
+    "name": "충남대학교",
+    "publicKey": {
+      "Ax": "13277427435165878497778222415993513565335242147425444199013288855685581939618",
+      "Ay": "13622229784656158136036771217484571176836296686641868549125388198837476602820"
+    }
+  },
+  "issuanceDate": "2025-10-01T00:00:00.000Z",
+  "validFrom": "2025-10-01T00:00:00.000Z",
+  "validUntil": "2026-10-01T00:00:00.000Z",
+  "credentialSubject": {
+    "id": "did:ethr:0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+    "walletAddress": "0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+    "name": "홍길동",
+    "birthDate": "1990-05-02",
+    "sex": "male",
+    "studentId": "201612345",
+    "university": "충남대학교",
+    "major": "컴퓨터공학과",
+    "degree": "학사",
+    "graduationDate": "2020-02-15"
+  },
+  "proof": {
+    "type": "BabyJubJubSMTSignature2024",
+    "created": "2025-10-01T00:00:00.000Z",
+    "proofPurpose": "verificationMethod",
+    "verificationMethod": "https://cnu.ac.kr/registrar/keys/1",
+    "merkleRoot": "10020116634457720801204649621421216792917392366410473538896700871186133065326",
+    "signature": {
+      "R8x": "11532810385139106014491968592443577488145745247938124902347218276030313703482",
+      "R8y": "20349288700882385704928096354154335904549528362995416842066488952695367786715",
+      "S": "2024004159207768434611554229977175100380210989671692860950934524029838545801"
+    }
+  }
+}

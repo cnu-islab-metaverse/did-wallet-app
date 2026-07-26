@@ -6,10 +6,12 @@
   "description": "Local Groth16 ZK circuit build pipeline (circom + snarkjs)",
   "scripts": {
     "build": "node build.js",
-    "verify": "node verify.js"
+    "verify": "node verify.mjs",
+    "sign": "node sign.mjs"
   },
   "devDependencies": {
     "circomlib": "^2.0.5",
+    "circomlibjs": "^0.1.7",
     "snarkjs": "^0.7.4"
   }
 }

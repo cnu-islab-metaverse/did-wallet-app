@@ -3,18 +3,11 @@ pragma circom 2.0.0;
 include "circomlib/circuits/eddsaposeidon.circom";
 include "circomlib/circuits/comparators.circom";
 include "circomlib/circuits/smt/smtverifier.circom";
+include "_registry.circom";
 
-// Recovered VERBATIM from zk-did/zk_did_scheme (circuits/main.circom) — the original
-// source that produced the zk-vc-extention artifacts. Three SMT claim inclusions
-// (age / alumni / name) against a common `root`, an EdDSA(Poseidon) issuer signature
-// over that root, and the business rule "age >= 25".
-// Only include paths were adapted for `circom -l node_modules`.
-//
-// NOTE: `component main = MainCircuit(64)` declares NO public inputs (nPublic = 0).
-// The deployed browser-extension version instead exposed [key_age, key_alumni,
-// key_name, Ax, Ay] as public (nPublic = 5). Decide which is canonical before relying
-// on a verifier (nPublic = 0 hides even the issuer pubkey, so a verifier can't check
-// which issuer signed).
+// [작업] 자격증명 회로 — VC의 age·alumni·name SMT 포함 증명 + 발급기관 EdDSA 서명 +
+//        발급기관 화이트리스트(_registry.circom) + "만 25세 이상". nPublic=0 (검증만).
+// 원본: zk-did/zk_did_scheme circuits/main.circom 구조 (include 경로만 조정).
 template MainCircuit(nLevels) {
     // Common root hash (used in all SMT proofs)
     signal input root;
@@ -99,6 +92,10 @@ template MainCircuit(nLevels) {
     eddsaVerifier.R8y <== R8y;
     eddsaVerifier.S <== S;
     eddsaVerifier.M <== M;
+
+    // 발급기관 화이트리스트: 서명자 공개키가 registry 의 정당 발급기관인지 검증.
+    Ax === issuerAx();
+    Ay === issuerAy();
 
     component ageCheck = GreaterEqThan(32);
     ageCheck.in[0] <== value_age; // Age value from SMT proof
