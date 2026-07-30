@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="176" height="34" viewBox="0 0 176 34" role="img" aria-label="CNU 증명서 발급 (실증 데모)">
+  <g>
+    <rect x="1" y="4" width="26" height="26" rx="6" fill="#12508a"/>
+    <path d="M8 12h12M8 17h12M8 22h7" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="22" cy="23" r="4.5" fill="#f4a020" stroke="#fff" stroke-width="1.4"/>
+  </g>
+  <text x="34" y="16" font-family="'Malgun Gothic','Noto Sans KR',sans-serif" font-size="14" font-weight="800" fill="#12508a">충남대학교</text>
+  <text x="34" y="29" font-family="'Malgun Gothic','Noto Sans KR',sans-serif" font-size="11.5" font-weight="600" fill="#5a6472">증명서 발급 서비스</text>
+</svg>

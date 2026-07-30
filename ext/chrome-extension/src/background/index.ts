@@ -1,5 +1,6 @@
 import 'webextension-polyfill';
 import { exampleThemeStorage } from '@extension/storage';
+import * as nativeBridge from './nativeBridge';
 
 exampleThemeStorage.get().then(theme => {
 });
@@ -89,116 +90,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.type === 'SAVE_SBT') {
     handleSaveSBT(message, sender, sendResponse);
     return true;
+  } else if (message.type === 'DESKTOP_RPC') {
+    handleDesktopRpc(message, sendResponse);
+    return true;
   }
+  return false;
 });
 
-// 주소 요청 처리
-async function handleAddressRequest(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
+// 씬 팝업이 데스크톱 지갑을 조회할 때 쓰는 릴레이(읽기 위주 메서드만 허용).
+const DESKTOP_RPC_ALLOW = new Set(['ping', 'getAddresses', 'getVCs']);
+async function handleDesktopRpc(message: any, sendResponse: (response: any) => void) {
   try {
-    await chrome.storage.local.set({
-      pendingAddressRequest: {
-        origin: message.origin,
-        timestamp: Date.now()
-      }
-    });
-    
-    try {
-      await chrome.action.openPopup();
-    } catch (error) {
-      await chrome.storage.local.remove(['pendingAddressRequest']);
-      sendResponse({
-        success: false,
-        error: '확장프로그램 팝업을 열 수 없습니다'
-      });
-      return;
-    }
-
-    const handlePopupMessage = (popupMessage: any, popupSender: chrome.runtime.MessageSender) => {
-      if (popupMessage.type === 'ADDRESS_REQUEST_RESPONSE') {
-        chrome.runtime.onMessage.removeListener(handlePopupMessage);
-        chrome.storage.local.remove(['pendingAddressRequest']);
-        sendResponse({
-          success: popupMessage.success,
-          address: popupMessage.address,
-          error: popupMessage.error
-        });
-      }
-    };
-
-    chrome.runtime.onMessage.addListener(handlePopupMessage);
-
-    setTimeout(() => {
-      chrome.runtime.onMessage.removeListener(handlePopupMessage);
-      chrome.storage.local.remove(['pendingAddressRequest']);
-      sendResponse({
-        success: false,
-        error: '사용자 응답 시간 초과'
-      });
-    }, 30000);
-
+    if (!DESKTOP_RPC_ALLOW.has(message.method)) throw new Error('method-not-allowed');
+    const result = await nativeBridge.request(message.method, message.params, message.method === 'ping' ? 3000 : 30000);
+    sendResponse({ ok: true, result });
   } catch (error: any) {
-    sendResponse({
-      success: false,
-      error: error.message || '지갑 연결 실패'
-    });
+    sendResponse({ ok: false, error: nativeBridge.friendlyError(error) });
   }
 }
 
-// VC 발급 승인 처리
+// 주소 요청 처리 — 데스크톱 지갑 프로그램에 위임(확장은 키 미보유). 승인은 데스크톱 창에서.
+async function handleAddressRequest(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
+  try {
+    const res = await nativeBridge.request('getAddresses', { origin: message.origin });
+    const address = res?.address || res?.active?.address || res?.accounts?.[0]?.address;
+    if (!address) throw new Error('데스크톱 지갑에 주소가 없습니다');
+    sendResponse({ success: true, address });
+  } catch (error: any) {
+    sendResponse({ success: false, error: nativeBridge.friendlyError(error) });
+  }
+}
+
+// VC 발급 승인 처리 — 데스크톱에 위임. 승인 팝업은 데스크톱 창에서 표시되고, VC 저장도 데스크톱.
 async function handleVCIssuanceRequest(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
   try {
-    const result = await chrome.storage.local.get(['savedVCs']);
-    const savedVCs = result.savedVCs || [];
-    const duplicateVC = checkDuplicateVC(message.vc, savedVCs);
-    
-    await chrome.storage.local.set({
-      pendingVCIssuance: {
-        vc: message.vc,
-        student: message.student,
-        origin: message.origin,
-        isDuplicate: !!duplicateVC,
-        duplicateId: duplicateVC?.id || null,
-        timestamp: Date.now()
-      }
-    });
-
-    try {
-      await chrome.action.openPopup();
-    } catch (error) {
-      sendResponse({
-        approved: false,
-        error: '확장프로그램 팝업을 열 수 없습니다'
-      });
-      return;
-    }
-
-    const handlePopupMessage = (popupMessage: any, popupSender: chrome.runtime.MessageSender) => {
-      if (popupMessage.type === 'VC_ISSUANCE_RESPONSE') {
-        chrome.runtime.onMessage.removeListener(handlePopupMessage);
-        chrome.storage.local.remove(['pendingVCIssuance']);
-        sendResponse({
-          approved: popupMessage.approved,
-          error: popupMessage.error
-        });
-      }
-    };
-
-    chrome.runtime.onMessage.addListener(handlePopupMessage);
-
-    setTimeout(() => {
-      chrome.runtime.onMessage.removeListener(handlePopupMessage);
-      chrome.storage.local.remove(['pendingVCIssuance']);
-      sendResponse({
-        approved: false,
-        error: '사용자 응답 시간 초과'
-      });
-    }, 30000);
-
+    const res = await nativeBridge.request('requestVCIssuance', { vc: message.vc, origin: message.origin }, 120000);
+    sendResponse({ approved: !!res?.approved });
   } catch (error: any) {
-    sendResponse({
-      approved: false,
-      error: error.message || 'VC 발급 승인 실패'
-    });
+    sendResponse({ approved: false, error: nativeBridge.friendlyError(error) });
   }
 }
 
@@ -267,51 +196,13 @@ function extractAddressFromDID(did: string): string | null {
   }
 }
 
-// VC 저장 처리 (중복 체크 후 사용자 확인)
+// VC 저장 처리 — 데스크톱 지갑에 저장(단일 저장소). 중복 처리·확인도 데스크톱에서.
 async function handleSaveVC(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
   try {
-    const verificationResult = { isValid: true, errors: [] as string[] } as any;
-    const result = await chrome.storage.local.get(['savedVCs']);
-    const savedVCs = result.savedVCs || [];
-    const duplicateVC = checkDuplicateVC(message.vc, savedVCs);
-    
-    if (duplicateVC) {
-      const pendingData = {
-        vc: message.vc,
-        origin: message.origin || 'manual-import',
-        isDuplicate: true,
-        duplicateId: duplicateVC.id,
-        duplicateVC: duplicateVC,
-        verificationResult,
-        timestamp: Date.now()
-      };
-      
-      await chrome.storage.local.set({
-        pendingVCSave: pendingData
-      });
-
-      try {
-        await chrome.action.openPopup();
-        sendResponse({
-          success: true,
-          message: '팝업에서 확인해주세요'
-        });
-      } catch (error) {
-        sendResponse({
-          success: false,
-          error: '확장프로그램 팝업을 열 수 없습니다'
-        });
-      }
-      
-    } else {
-      await saveVCToStorage(message.vc, message.origin, null, verificationResult, sendResponse);
-    }
-    
+    const res = await nativeBridge.request('saveVC', { vc: message.vc, origin: message.origin });
+    sendResponse({ success: !!res?.saved, vcId: message.vc?.id || message.vc?.proof?.merkleRoot || '' });
   } catch (error: any) {
-    sendResponse({
-      success: false,
-      error: error.message || 'VC 저장 실패'
-    });
+    sendResponse({ success: false, error: nativeBridge.friendlyError(error) });
   }
 }
 

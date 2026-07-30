@@ -1,0 +1,21 @@
+{
+  "cnu_graduation": {
+    "id": "sbt:cnu-graduation-2020",
+    "name": "충남대 졸업 증명",
+    "description": "졸업여부 확인용",
+    "image": "https://plus.cnu.ac.kr/images/kr/sub01/ci_simbol_v2.png",
+    "tokenId": "202012345",
+    "contract": "0x1234567890123456789012345678901234567890",
+    "issuedAt": "2020-02-15T09:00:00.000Z"
+  },
+  "daejeon_resident": {
+    "id": "sbt:daejeon-resident-2024",
+    "name": "대전지역 거주 증명",
+    "description": "대전지역 거주여부 확인용",
+    "image": "https://www.daejeon.go.kr/images/drh/sub06/dj_siki.png",
+    "tokenId": "2024001234",
+    "contract": "0x9a810c5603338e49ff033204778f90665b7324f8",
+    "issuedAt": "2024-01-15T10:00:00.000Z"
+  }
+}
+

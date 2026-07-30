@@ -31,7 +31,9 @@ const manifest = {
   version: packageJson.version,
   description: '__MSG_extensionDescription__',
   host_permissions: ['<all_urls>'],
-  permissions: ['storage', 'scripting', 'tabs', 'notifications', 'sidePanel'],
+  // nativeMessaging: 설치된 데스크톱 지갑 프로그램(네이티브 호스트 com.cnu.didwallet)에 접속.
+  // 이 확장은 키를 보관하지 않는 씬클라이언트 — 프로그램이 없으면 지갑 기능 불가.
+  permissions: ['storage', 'scripting', 'tabs', 'notifications', 'sidePanel', 'nativeMessaging'],
   options_page: 'options/index.html',
   background: {
     service_worker: 'background.js',

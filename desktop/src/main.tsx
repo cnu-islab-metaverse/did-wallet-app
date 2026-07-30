@@ -2,7 +2,11 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { App } from '../../src'
 import TitleBar from './components/TitleBar'
+import { initWalletRpc } from './walletRpc'
 import './index.css'
+
+// 확장(네이티브 호스트)에서 온 지갑 RPC 를 이 렌더러에서 처리(키·저장·승인은 데스크톱 전용).
+initWalletRpc()
 
 const DesktopApp = () => {
   const [theme, setTheme] = React.useState<'light' | 'dark'>('light');

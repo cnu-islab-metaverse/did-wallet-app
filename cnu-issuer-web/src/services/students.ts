@@ -10,14 +10,14 @@ const db = JSON.parse(dbContent)
 interface Student {
   studentId: string
   name: string
-  sex: 'male' | 'female'
+  sex: string // '남' | '여'
   birth: string
   department: string
   college: string
   degree: string
   admissionYear: number
   graduationYear: number | null
-  status: 'graduated' | 'enrolled'
+  status: string // '재학' | '졸업'
   nationalId: string
   email: string
 }
@@ -36,11 +36,11 @@ studentsRouter.post('/verify', (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Student not found or birth date mismatch' })
   }
 
-  res.json({ 
-    ok: true, 
+  res.json({
+    ok: true,
     student: {
       ...student,
-      profileImage: student.sex === 'male' ? '/assets/profile-male.svg' : '/assets/profile-female.svg'
+      profileImage: (student.sex === '남' || student.sex === 'male') ? '/assets/profile-male.svg' : '/assets/profile-female.svg'
     }
   })
 })

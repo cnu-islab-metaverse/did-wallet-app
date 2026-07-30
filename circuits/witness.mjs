@@ -15,14 +15,31 @@ export const UNIV_CODE = {
 };
 export const REGIONAL_UNIVS = Object.keys(UNIV_CODE);
 
-// 시도명 → 법정동코드 시도 2자리(행정안전부/행정표준코드). 주소에서 거주 지역코드를 뽑는다.
-// _registry.circom 의 daejeonCode() 와 일치(대전=30).
-export const SIDO_CODE = {
-  서울특별시: 11, 부산광역시: 26, 대구광역시: 27, 인천광역시: 28, 광주광역시: 29,
-  대전광역시: 30, 울산광역시: 31, 세종특별자치시: 36, 경기도: 41, 강원특별자치도: 42,
-  강원도: 42, 충청북도: 43, 충청남도: 44, 전북특별자치도: 45, 전라북도: 45,
-  전라남도: 46, 경상북도: 47, 경상남도: 48, 제주특별자치도: 50,
-};
+// 시도 법정동코드(행정안전부/행정표준코드) 2자리. 주소에서 거주 지역코드를 뽑는다. 정식·약어 모두 대응.
+// _registry.circom 의 daejeonCode() 와 일치(대전=30). ★ issuer-web/services/vcsign.ts 와 동일해야 함.
+export const SIDO = [
+  { code: 11, p: ['서울특별시', '서울시', '서울'] },
+  { code: 26, p: ['부산광역시', '부산시', '부산'] },
+  { code: 27, p: ['대구광역시', '대구시', '대구'] },
+  { code: 28, p: ['인천광역시', '인천시', '인천'] },
+  { code: 29, p: ['광주광역시', '광주시', '광주'] },
+  { code: 30, p: ['대전광역시', '대전시', '대전'] },
+  { code: 31, p: ['울산광역시', '울산시', '울산'] },
+  { code: 36, p: ['세종특별자치시', '세종시', '세종'] },
+  { code: 41, p: ['경기도', '경기'] },
+  { code: 42, p: ['강원특별자치도', '강원도', '강원'] },
+  { code: 43, p: ['충청북도', '충북'] },
+  { code: 44, p: ['충청남도', '충남'] },
+  { code: 45, p: ['전북특별자치도', '전라북도', '전북'] },
+  { code: 46, p: ['전라남도', '전남'] },
+  { code: 47, p: ['경상북도', '경북'] },
+  { code: 48, p: ['경상남도', '경남'] },
+  { code: 50, p: ['제주특별자치도', '제주도', '제주'] },
+];
+
+// 클레임 → SMT 고정 키. 신용증명 종류마다 일부만 있어도 각 클레임은 항상 같은 키에 들어간다.
+// ★ issuer-web/services/vcsign.ts 와 반드시 동일. 회로 입력의 key_* 도 이 값과 일치.
+export const CLAIM_KEY = { name: 0, birthDate: 1, residence: 2, university: 3, validUntil: 4 };
 
 // 데모용 고정 테스트 발급기관 개인키(서명 단계에서만 사용). 여기서 공개키가 파생된다.
 export const ISSUER_PRV = Buffer.from(
@@ -40,9 +57,9 @@ export function todayYmd() {
   return n.getFullYear() * 10000 + (n.getMonth() + 1) * 100 + n.getDate();
 }
 export function regionCodeFromAddress(addr) {
-  const sido = Object.keys(SIDO_CODE).find((s) => String(addr).startsWith(s));
-  if (!sido) throw new Error(`주소에서 시도를 못 찾음: ${addr}`);
-  return SIDO_CODE[sido];
+  const a = String(addr).trim();
+  for (const s of SIDO) if (s.p.some((pre) => a.startsWith(pre))) return s.code;
+  throw new Error(`주소에서 시도를 못 찾음: ${addr}`);
 }
 
 // vc 클레임을 SMT 로 구성하고 포함증명 witness 를 뽑는다. 결정적 → 매번 같은 root.
@@ -53,31 +70,33 @@ export async function buildWitness(vc) {
   const F = tree.F;
 
   const subj = vc.credentialSubject;
-  const univCode = UNIV_CODE[subj.university];
-  if (univCode === undefined) throw new Error(`학교코드 없음(대학 목록 밖): ${subj.university}`);
-  const regionCode = regionCodeFromAddress(subj.residentialAddress);
-  // 클레임 인코딩: name=poseidon(문자열), 나머지는 정수(코드/YYYYMMDD). 나이는 저장 안 함.
-  const claims = {
-    name: subj.name,
-    birthDate: toYmd(subj.birthDate),
-    university: univCode,
-    residence: regionCode,
-    validUntil: toYmd(vc.validUntil),
-  };
+  // VC 에 있는 클레임만 정규 스키마로 인코딩(부분 신용증명 허용). name=poseidon(문자열), 나머지 정수.
+  // 나이는 저장하지 않는다(회로가 birthDate+현재날짜로 계산). ★ vcsign.ts 와 동일 규칙.
+  const claims = {};
+  if (subj.name != null) claims.name = subj.name;
+  if (subj.birthDate != null) claims.birthDate = toYmd(subj.birthDate);
+  if (subj.residentialAddress != null) claims.residence = regionCodeFromAddress(subj.residentialAddress);
+  if (subj.university != null) {
+    const c = UNIV_CODE[subj.university];
+    if (c === undefined) throw new Error(`학교코드 없음(대학 목록 밖): ${subj.university}`);
+    claims.university = c;
+  }
+  if (vc.validUntil != null) claims.validUntil = toYmd(vc.validUntil);
 
-  const keys = {};
-  let idx = 0n;
-  for (const k of Object.keys(claims)) keys[k] = idx++;
   const toField = (v) => (typeof v === 'string' ? F.e(poseidon([Buffer.from(v, 'utf8')])) : F.e(v));
-  for (const [k, v] of Object.entries(claims)) await tree.insert(keys[k], toField(v));
+  for (const [k, v] of Object.entries(claims)) await tree.insert(BigInt(CLAIM_KEY[k]), toField(v));
 
   async function inclusion(claim) {
-    const key = F.e(keys[claim]);
+    const key = F.e(CLAIM_KEY[claim]);
     const res = await tree.find(key);
     const sib = res.siblings.map((s) => F.toObject(s));
     while (sib.length < LEVELS) sib.push(0);
     return { key: F.toObject(key), value: F.toObject(res.foundValue), siblings: sib };
   }
+
+  // VC 에 존재하는 클레임만 포함증명을 만든다(부분 신용증명 허용).
+  const inclusions = {};
+  for (const k of Object.keys(claims)) inclusions[k] = await inclusion(k);
 
   return {
     F, eddsa, subj,
@@ -87,12 +106,7 @@ export async function buildWitness(vc) {
     walletAddress: BigInt(subj.walletAddress),
     rootF: tree.root,
     root: F.toObject(tree.root),
-    inclusions: {
-      birthDate: await inclusion('birthDate'),
-      university: await inclusion('university'),
-      residence: await inclusion('residence'),
-      validUntil: await inclusion('validUntil'),
-    },
+    inclusions,
   };
 }
 

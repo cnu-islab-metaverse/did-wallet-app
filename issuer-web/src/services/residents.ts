@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import Database from 'better-sqlite3'
 import * as path from 'path'
+import { deriveDriverLicense, ageFromBirth } from './driver'
 
 // Load SQLite database
 const dbPath = path.join(__dirname, '../../database/residents.db')
@@ -50,6 +51,9 @@ residentsRouter.post('/verify', (req: Request, res: Response) => {
   }
 
   const maskedRrn = resident.ihidnum.replace(/(\d{6})-?(\d{7})/, (_, a: string) => `${a}-*******`)
+  const age = ageFromBirth(resident.birth)
+  // 운전면허 미리보기(결정적 파생). 만 18세 미만은 발급 불가로 표시.
+  const driver = age >= 18 ? deriveDriverLicense(resident.cxid, resident.birth) : null
 
   res.json({
     ok: true,
@@ -65,8 +69,11 @@ residentsRouter.post('/verify', (req: Request, res: Response) => {
       nationalId: resident.cxid,
       title: resident.title,
       issuernm: resident.issuernm,
+      age,
       profileImage: resident.sex === 'male' ? '/assets/profile-male.svg' : '/assets/profile-female.svg'
-    }
+    },
+    driver, // null 이면 운전면허 발급 불가(미성년)
+    driverEligible: driver !== null
   })
 })
 

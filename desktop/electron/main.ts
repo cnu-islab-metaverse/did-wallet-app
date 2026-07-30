@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { startWalletBridge } from './walletBridge'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -72,7 +73,11 @@ app.on('activate', () => {
   }
 })
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  createWindow()
+  // 확장(네이티브 호스트)이 접속할 로컬 지갑 브리지 시작. 요청은 렌더러 지갑 코어로 위임.
+  startWalletBridge(() => win)
+})
 
 // IPC handlers
 ipcMain.handle('reload-app', () => {

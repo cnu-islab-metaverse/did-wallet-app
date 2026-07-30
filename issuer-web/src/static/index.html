@@ -3,101 +3,187 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>신분증e발급</title>
+    <title>정부24 | 전자증명서(VC) 발급 · 실증 데모</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div class="gov-topbar">
-      <div class="gov-topbar__inner">
-        <img src="/assets/gov-logo.svg" alt="GOV" class="gov-logo" />
-        <div class="gov-brand">
-          <div class="gov-brand__title">인증24</div>
-          <div class="gov-brand__subtitle">주민등록증 · 외국인등록증 VC 발급</div>
-        </div>
+    <!-- 실증 데모 고지 (연구과제 RS-2023-00229400) -->
+    <div class="demo-banner">
+      ⚠ 본 사이트는 실제 정부24가 아닌 <strong>연구 실증용 데모</strong>입니다 (ICT R&D RS-2023-00229400). 실제 개인정보를 입력하지 마세요.
+    </div>
+
+    <!-- 상단 유틸리티 바 -->
+    <div class="util-bar">
+      <div class="wrap util-bar__inner">
+        <span class="util-bar__gov">대한민국 정부 · 실증 데모</span>
+        <nav class="util-bar__links">
+          <a href="#" aria-disabled="true">로그인</a>
+          <a href="#" aria-disabled="true">회원가입</a>
+          <a href="#" aria-disabled="true">고객센터</a>
+          <a href="#" aria-disabled="true">ENGLISH</a>
+        </nav>
       </div>
     </div>
 
-    <main class="container">
-      <header class="page-header">
-        <h1>신분증e발급</h1>
-        <p class="subtitle">
-          <br>
-          <strong>VC(Verifiable Credential)</strong>란, 증명기관(발급자)이 발급한 전자 신원증명서를 안전하게 저장하고, 필요한 정보만 선별적으로 제출할 수 있도록 지원하는 디지털 인증 기술입니다.
-          <br><br>
-          이 서비스는 <strong>주민등록증·외국인등록증</strong> 기반으로 디지털 신분증(VC)을 쉽고 안전하게 발급해 드립니다. 발급받은 신분증은 본인의 지갑 프로그램에 등록하여, 다양한 온라인·오프라인 서비스에서 신원 확인 용도로 활용할 수 있습니다.</p>
-      </header>
+    <!-- 헤더 -->
+    <header class="gnb-header">
+      <div class="wrap gnb-header__inner">
+        <a class="brand" href="/">
+          <img src="/assets/gov24-logo.svg" alt="정부24 (실증 데모)" height="34" />
+        </a>
+        <form class="searchbar" onsubmit="return false;">
+          <input type="text" placeholder="찾고 싶은 서비스를 검색해 보세요" aria-label="서비스 검색" />
+          <button type="submit" aria-label="검색">🔍</button>
+        </form>
+      </div>
+      <nav class="gnb">
+        <div class="wrap gnb__inner">
+          <a href="#" class="gnb__item is-active">전자증명서(VC) 발급</a>
+          <a href="#" class="gnb__item" data-tab="resident">주민등록증</a>
+          <a href="#" class="gnb__item" data-tab="driver">운전면허증</a>
+          <a href="#" class="gnb__item">이용안내</a>
+        </div>
+      </nav>
+    </header>
 
-      <section class="panel">
-        <div class="input-group">
+    <!-- 브레드크럼 -->
+    <div class="breadcrumb">
+      <div class="wrap">
+        <span>홈</span> <span class="sep">›</span>
+        <span>전자문서지갑</span> <span class="sep">›</span>
+        <span class="current" id="crumbType">주민등록증 발급</span>
+      </div>
+    </div>
+
+    <main class="wrap page">
+      <div class="page-head">
+        <h1 id="pageTitle">주민등록증 전자증명서(VC) 발급</h1>
+        <p class="page-desc">
+          행정·공공기관이 발급한 전자 신원증명서(VC)를 본인의 <strong>DID 지갑</strong>에 안전하게 보관하고,
+          필요한 정보만 선별 제출할 수 있습니다. 아래에서 증명서 종류를 선택해 발급하세요.
+        </p>
+      </div>
+
+      <!-- 증명서 종류 탭 -->
+      <div class="type-tabs" role="tablist">
+        <button class="type-tab is-active" data-tab="resident" role="tab">
+          <span class="type-tab__ico">🪪</span>
+          <span class="type-tab__t">주민등록증</span>
+          <span class="type-tab__s">행정안전부</span>
+        </button>
+        <button class="type-tab" data-tab="driver" role="tab">
+          <span class="type-tab__ico">🚗</span>
+          <span class="type-tab__t">운전면허증</span>
+          <span class="type-tab__s">경찰청</span>
+        </button>
+      </div>
+
+      <!-- 진행 단계 -->
+      <ol class="stepper">
+        <li class="step is-active" data-step="1"><span class="step__n">1</span> 본인확인</li>
+        <li class="step" data-step="2"><span class="step__n">2</span> 발급정보 확인</li>
+        <li class="step" data-step="3"><span class="step__n">3</span> 지갑에 발급</li>
+      </ol>
+
+      <!-- STEP 1: 본인확인 -->
+      <section class="card" id="stepVerify">
+        <h2 class="card__title">본인확인</h2>
+        <p class="card__hint">주민등록 정보로 본인확인 후 전자증명서를 발급합니다. (데모 계정: 문채원 / 1988-12-05 / 8)</p>
+        <div class="form-grid">
           <div class="field">
             <label for="name">성명</label>
-            <input id="name" value="홍길동" />
+            <input id="name" value="문채원" autocomplete="off" />
           </div>
           <div class="field">
             <label for="birth">생년월일</label>
-            <input id="birth" maxlength="10" value="1990-05-02" />
+            <input id="birth" maxlength="10" value="1988-12-05" placeholder="YYYY-MM-DD" autocomplete="off" />
           </div>
           <div class="field">
             <label for="rrnSuffix">주민등록번호 뒤 1자리</label>
-            <input id="rrnSuffix" maxlength="1" value="1" />
+            <input id="rrnSuffix" maxlength="1" value="8" autocomplete="off" />
           </div>
-          <button id="verifyBtn" class="primary-btn">주민등록정보 조회</button>
+        </div>
+        <div class="card__actions">
+          <button id="verifyBtn" class="btn btn--primary">본인확인</button>
         </div>
       </section>
 
-      <section id="idSection" class="idcard-panel" style="display: none;">
-        <div class="idcard">
-          <div class="idcard-header">
-            <h2>주민등록증</h2>
-            <div class="issuer-name">행정안전부</div>
-          </div>
+      <!-- STEP 2: 발급정보 확인 (증명서 카드 미리보기) -->
+      <section class="card" id="stepPreview" hidden>
+        <h2 class="card__title">발급정보 확인</h2>
 
-          <div class="idcard-content">
-            <div class="profile-section">
-              <img id="profileImage" src="" alt="프로필 사진" class="profile-img person-info" />
-              <div class="person-info-grid">
-                <div class="info-row">
-                  <span class="label">성명:</span>
-                  <span id="residentName" class="value person-info"></span>
-                </div>
-                <div class="info-row">
-                  <span class="label">생년월일:</span>
-                  <span id="residentBirth" class="value person-info"></span>
-                </div>
-                <div class="info-row">
-                  <span class="label">주소:</span>
-                  <span id="residentAddress" class="value person-info"></span>
-                </div>
-                <div class="info-row">
-                  <span class="label">주민등록번호:</span>
-                  <span id="rrnMasked" class="value person-info"></span>
-                </div>
-              </div>
-            </div>
+        <!-- 주민등록증 카드 -->
+        <div class="idcard idcard--resident" id="cardResident">
+          <div class="idcard__title">주민등록증</div>
+          <div class="idcard__body">
+            <img class="idcard__photo" id="r_photo" src="" alt="사진" />
+            <dl class="idcard__fields">
+              <div><dt>성명</dt><dd id="r_name"></dd></div>
+              <div><dt>주민등록번호</dt><dd id="r_rrn"></dd></div>
+              <div><dt>주소</dt><dd id="r_addr"></dd></div>
+            </dl>
           </div>
-
-          <div class="idcard-footer">
-            <div class="issue-date">발급일: <span id="idIssueDate"></span></div>
-            <div class="issuer">장관 직인</div>
+          <div class="idcard__foot">
+            <span id="r_date"></span>
+            <span class="idcard__issuer" id="r_issuer">행정안전부장관</span>
           </div>
         </div>
 
-        <div class="vc-section">
-          <h3>신원 VC 발급</h3>
-          <div class="vc-input-group">
-            <input id="walletAddress" placeholder="지갑 주소 (0x...)" />
-            <button id="genAddrBtn" class="vc-btn" type="button">지갑 연결</button>
-            <button id="issueBtn" class="vc-btn" type="button">VC 발급(지갑에 등록)</button>
+        <!-- 운전면허증 카드 -->
+        <div class="idcard idcard--driver" id="cardDriver" hidden>
+          <div class="idcard__title">자동차운전면허증</div>
+          <div class="idcard__body">
+            <img class="idcard__photo" id="d_photo" src="" alt="사진" />
+            <dl class="idcard__fields">
+              <div><dt>성명</dt><dd id="d_name"></dd></div>
+              <div><dt>면허번호</dt><dd id="d_no"></dd></div>
+              <div><dt>종별</dt><dd id="d_type"></dd></div>
+              <div><dt>주소</dt><dd id="d_addr"></dd></div>
+              <div><dt>갱신기간</dt><dd id="d_renew"></dd></div>
+            </dl>
           </div>
-          <div id="vcResult" class="vc-result"></div>
+          <div class="idcard__foot">
+            <span id="d_date"></span>
+            <span class="idcard__issuer" id="d_issuer"></span>
+          </div>
+        </div>
+
+        <div id="driverBlocked" class="notice notice--warn" hidden>
+          만 18세 미만은 운전면허증을 발급할 수 없습니다.
+        </div>
+
+        <div class="card__actions">
+          <button id="backBtn" class="btn btn--ghost">이전</button>
+          <button id="toIssueBtn" class="btn btn--primary">지갑에 발급하기</button>
         </div>
       </section>
 
-      <div id="errorMessage" class="error-panel" style="display: none;"></div>
+      <!-- STEP 3: 지갑에 발급 -->
+      <section class="card" id="stepIssue" hidden>
+        <h2 class="card__title">지갑에 발급</h2>
+        <p class="card__hint">발급받을 DID 지갑 주소를 연결하거나 입력하세요. 발급된 VC는 지갑에 저장됩니다.</p>
+        <div class="wallet-row">
+          <input id="walletAddress" placeholder="지갑 주소 (0x...)" />
+          <button id="genAddrBtn" class="btn btn--line" type="button">지갑 연결</button>
+          <button id="issueBtn" class="btn btn--primary" type="button">VC 발급</button>
+        </div>
+        <div id="vcResult" class="vc-result"></div>
+      </section>
+
+      <div id="errorMessage" class="notice notice--error" hidden></div>
     </main>
+
+    <!-- 푸터 -->
+    <footer class="gov-footer">
+      <div class="wrap gov-footer__inner">
+        <img src="/assets/gov24-logo.svg" alt="정부24" height="28" class="gov-footer__logo" />
+        <div class="gov-footer__txt">
+          <p>본 페이지는 <strong>DID·SBT 통합 지갑 연구 실증(ICT R&D RS-2023-00229400, 충남대학교)</strong>을 위한 데모입니다.</p>
+          <p class="gov-footer__copy">실제 정부24(www.gov.kr) 및 행정·공공기관과 무관합니다.</p>
+        </div>
+      </div>
+    </footer>
 
     <script src="/main.js"></script>
   </body>
-  </html>
-
-
+</html>

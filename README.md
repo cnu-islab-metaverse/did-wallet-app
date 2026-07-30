@@ -15,14 +15,14 @@
    [현실 신원]                                              [메타버스: metaverse-world]
        │                                                          ▲
        ▼                                                          │ SBT 보유로 아바타 접근 제어
-┌─────────────┐   VC    ┌──────────────┐  VP(ZK증명)  ┌───────────────┐  mintSBT  ┌──────────────┐
-│ 오프체인 발급 │ ──────▶ │  DID·SBT 지갑 │ ──────────▶ │  온체인 검증자  │ ────────▶ │  온체인 컨트랙트 │
-│ issuer-web   │  서명   │ src/desktop/ext│  조건만 공개 │  verifier-web  │  검증 통과 │ CityYouthPass  │
-│ cnu-issuer   │         │ (VC 보관·증명)  │             │               │           │ SBT(소울바운드) │
-└─────────────┘         └──────────────┘             └───────────────┘           └──────────────┘
-       │                                                     ▲                            │
-       └─────────────── circuits (ZK 회로 뼈대) ─────────────┘   Verifier.sol ────────────┘
-                         circom+snarkjs, Groth16                (DaejeonYouthVerifier)
+┌─────────────┐   VC    ┌──────────────┐  VP(ZK증명)  ┌───────────────┐  mintPass  ┌──────────────┐
+│ 오프체인 발급 │ ──────▶ │  DID·SBT 지갑 │ ──────────▶ │  온체인 검증자  │ ────────▶ │  발급 SBT       │
+│ issuer-web   │  서명   │ src/desktop/ext│  조건만 공개 │  verifier-web  │  검증 통과 │ *PassSBT       │
+│ cnu-issuer   │         │ (VC 보관·증명)  │             │               │           │ (소울바운드)     │
+└─────────────┘         └──────────────┘             └───────────────┘           └──────┬───────┘
+       │                                                     ▲                           │ verifyProof
+       └─────────────── circuits (ZK 회로 뼈대) ─────────────┘   Verifier.sol ───────────▼──────
+                         circom+snarkjs, Groth16                (*Verifier: 회로 산출물)
 ```
 
 ---
@@ -37,7 +37,7 @@
 | **`issuer-web/`** | **오프체인 발급기관** — 주민/거주 신원 확인 후 Identity VC 발급 | Express + static UI |
 | **`cnu-issuer-web/`** | **오프체인 발급기관(충남대)** — 학적 DB 기반 졸업/재학 VC 발급 | Express |
 | **`verifier-web/`** | **온체인 검증자 프론트** — VP 수신(`/submit-vp`) → 검증 → `mintSBT` 호출 | Express + Vite |
-| **`contract/`** | 온체인 컨트랙트 — `CityYouthPassSBT`(소울바운드 ERC-721) + `DaejeonYouthVerifier`(Groth16 Verifier) | Foundry (Solidity) |
+| **`contract/`** | 온체인 컨트랙트 — 시나리오별 [`*PassSBT`(ERC-721+ERC-5192 소울바운드) → `*Verifier`(Groth16)] 2쌍 | Foundry (Solidity) |
 | **`circuits/`** | **ZK 핵심 뼈대** — 조건 증명 회로(지방거점국립대 재학/졸업, 지역청년패스=대전 거주+만19~34세) 로컬 빌드/검증, `Verifier.sol` 산출 | circom + snarkjs |
 
 > 심화 문서: 지갑 코어는 `src/`, ZK 회로 파이프라인은 [`circuits/README.md`](circuits/README.md), 컨트랙트는 `contract/`.
@@ -47,18 +47,18 @@
 1. **발급** — 발급기관(`issuer-web` 거주 / `cnu-issuer-web` 학적)이 현실 신원을 확인하고 **서명된 VC**를 발급.
 2. **보관** — 홀더가 지갑(`desktop`/`ext`, 코어 `src/`)에 VC를 보관.
 3. **증명(VP)** — 혜택/접근 요청 시, 지갑이 원본 VC를 노출하지 않고 **조건만 증명하는 ZK 증명**을 만들어 VP로 제출. (회로: `circuits/scenarios/*.circom`)
-4. **검증·발급** — `verifier-web`이 VP를 받아 증명을 검증하고 `CityYouthPassSBT.mintSBT`를 호출. 컨트랙트가 `DaejeonYouthVerifier.verifyProof`로 온체인 검증을 통과해야만 **소울바운드 SBT** 발급.
+4. **검증·발급** — 지갑이 `*PassSBT.mintPass`를 호출(또는 `verifier-web` 경유). 컨트랙트가 `*Verifier.verifyProof` + 제출자 바인딩(`msg.sender==walletAddress`) + 시점 검사를 통과해야만 **소울바운드 SBT** 발급.
 5. **활용** — 발급된 SBT를 `metaverse-world`가 읽어 **아바타(블록체인 계정)의 서비스 접근을 제어**.
 
 ## 구현 현황 (정확 기준)
 
 | 요소 | 상태 | 비고 |
 |---|---|---|
-| ZK 회로 뼈대 (`circuits/`) | **동작** | 단일 `vc.json` → 발급 서명 → 증명·검증 로컬 완결. 두 시나리오 통과. `Verifier.sol` 산출 |
+| ZK 회로 (`circuits/`) | **완료** | 단일 `vc.json` → 서명 → 증명·검증 로컬 완결. 두 시나리오(youth_pass·regional) 통과. 공개신호 `[currentDate, walletAddress]`. `Verifier.sol` 산출 |
+| 온체인 컨트랙트 (`contract/`) | **재구성·테스트 완료** | ERC-5192 소울바운드 [발급 SBT→검증 Verifier]×2. 실제 증명으로 `forge test` 8건 통과(A2·시점 검사 포함). **재배포 대기**(주소 갱신 필요) |
 | 발급기관 앱 (`issuer-web`/`cnu-issuer-web`) | **동작(발급 UI/DB)** | 아직 `circuits`의 발급기관 서명 로직과 **미통합** |
-| 온체인 컨트랙트 (`contract/`) | **배포됨(Sepolia)** | `verifier-web/src/config/deployment.config.js` 참조 |
 | `verifier-web` `/submit-vp` | **스텁** | 현재 VC의 거주지 **문자열 매칭**만 수행 — 실제 `groth16.verify`/온체인 `verifyProof` 호출은 미구현 |
-| 회로 ↔ 온체인 정합 | **미완** | 현재 회로 `nPublic=0` vs 배포된 `DaejeonYouthVerifier`는 `uint[5]` 공개신호 기대. 제출자 바인딩/재사용 방지 설계 확정 후 정합 필요 |
+| 지갑 증명 모듈 (`ext`/`desktop`) | **미구현** | 회로 wasm/zkey 번들 + `fullProve` + VC 저장 필요 |
 
 ## 개발 / 실행
 

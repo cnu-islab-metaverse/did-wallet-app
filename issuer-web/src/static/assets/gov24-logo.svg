@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="132" height="34" viewBox="0 0 132 34" role="img" aria-label="정부24 (실증 데모)">
+  <!-- 데모용 기하 엠블럼 (실제 정부 엠블럼과 무관) -->
+  <g>
+    <circle cx="17" cy="17" r="16" fill="#0B50D0"/>
+    <path d="M9 20c2.6-1.6 4.2-4 4.6-6.8.4 2.8 2 5.2 4.6 6.8-2.6 1.6-4.2 4-4.6 6.8-.4-2.8-2-5.2-4.6-6.8z" fill="#fff"/>
+    <circle cx="22.5" cy="12" r="2.4" fill="#E23B3B"/>
+  </g>
+  <text x="40" y="23" font-family="'Malgun Gothic','Noto Sans KR',sans-serif" font-size="19" font-weight="800" fill="#1a1a1a">정부<tspan fill="#0B50D0">24</tspan></text>
+</svg>
