@@ -12,7 +12,8 @@ const PORT = process.env.PORT || 20252;
 app.use(cors());
 app.use(express.json());
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'static')));
+// index:false — '/' 는 아래 라우트가 플랫폼 화면을 내주게 한다(static 이 먼저 index.html 을 잡지 않도록).
+app.use(express.static(path.join(__dirname, 'static'), { index: false }));
 // Serve circuit assets (wasm/zkey/vk)
 app.use('/circuit', express.static(path.join(__dirname, '..', 'circuit')));
 // Serve config files
@@ -173,8 +174,13 @@ app.post('/submit-vp', (req: Request, res: Response) => {
   }
 });
 
-// Serve main UI
+// 메인 = 데모 메타버스 플랫폼 화면(발급 요청을 만들어 QR·주소로 지갑에 넘긴다).
 app.get('/', (_req: Request, res: Response) => {
+  res.sendFile(path.join(__dirname, 'static', 'platform', 'index.html'));
+});
+
+// 이전 데모(비-ZK 스텁 /submit-vp 경로)는 참고용으로 남겨둔다.
+app.get('/legacy', (_req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, 'static', 'index.html'));
 });
 

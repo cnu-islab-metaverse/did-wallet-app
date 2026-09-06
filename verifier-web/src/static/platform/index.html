@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>대전 메타버스 — 아바타 권한 관리 실증</title>
+  <link rel="stylesheet" href="/platform/platform.css" />
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="brand"><span class="dot"></span> 대전 메타버스</div>
+      <nav>
+        <a class="on" href="/">홈</a>
+        <a href="/platform/pass.html">인증토큰 발급</a>
+        <a href="/legacy">이전 데모</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>아바타가 <span class="grad">자격을 증명하고</span><br />공간에 들어갑니다</h1>
+      <p>
+        현실 신원으로 발급받은 증명서를 원본 노출 없이 영지식으로 증명하면,
+        소울바운드 인증토큰(SBT)이 지갑에 발급됩니다. 아바타는 그 토큰으로 공간 접근 권한을 얻습니다.
+      </p>
+      <a href="/platform/pass.html"><button>인증토큰 발급받기 →</button></a>
+    </section>
+
+    <section>
+      <h2 style="font-size:18px;margin:0 0 14px">공간</h2>
+      <div class="grid">
+        <div class="card">
+          <div class="zone-art zone-a"></div>
+          <h3>대전 청년 라운지</h3>
+          <div class="sub">대전에 거주하는 만 19~34세 청년을 위한 공간입니다.</div>
+          <span class="badge">필요: 지역청년패스</span>
+        </div>
+        <div class="card">
+          <div class="zone-art zone-b"></div>
+          <h3>대학 협력관</h3>
+          <div class="sub">지방거점국립대 재학생·졸업생이 이용하는 협력 공간입니다.</div>
+          <span class="badge">필요: 지방거점국립대 소속</span>
+        </div>
+      </div>
+    </section>
+
+    <section style="margin-top:36px">
+      <h2 style="font-size:18px;margin:0 0 14px">어떻게 동작하나</h2>
+      <div class="card">
+        <ol class="steps">
+          <li>발급기관(행정안전부·충남대 등)이 현실 신원을 확인하고 <b>증명서(VC)</b>를 발급합니다.</li>
+          <li>지갑이 증명서를 보관합니다. 원본은 어디에도 전송되지 않습니다.</li>
+          <li>이 플랫폼이 <b>발급 요청</b>을 만들어 "무엇을 증명해 어디에 제출할지"를 알려줍니다.</li>
+          <li>지갑이 조건만 증명하는 <b>영지식 증명</b>을 만들어 컨트랙트에 제출합니다.</li>
+          <li>검증을 통과하면 <b>인증토큰(SBT)</b>이 발급되고, 아바타가 공간에 입장할 수 있습니다.</li>
+        </ol>
+        <div class="note" style="margin-top:14px">
+          거주지·생년월일·소속 대학은 공개되지 않습니다. 공개되는 값은 증명 시점의 날짜와 제출 지갑주소뿐입니다.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <div class="note">
+      ICT R&amp;D 과제 RS-2023-00229400 — 안전한 메타버스 아바타를 위한 사용자 인증 및 프라이버시 보호 기술개발 (충남대학교)<br />
+      시연용 데모입니다. Sepolia 테스트넷에서 동작합니다.
+    </div>
+  </footer>
+</body>
+</html>
