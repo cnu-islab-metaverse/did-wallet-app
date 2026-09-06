@@ -1,66 +1,98 @@
-# circuits — 로컬 ZK 회로 빌드/검증 (circom + snarkjs, Groth16)
+# circuits — ZK 회로 빌드/검증 (circom + snarkjs, Groth16)
 
-- **단일 입력은 공통 샘플 VC** 하나(`vc.json`) 뿐 — 시나리오별 입력 파일 없음. witness 는 검증 시 메모리로 생성.
+- **시나리오별 샘플 VC** — `vc/resident.json`(행정안전부 주민등록증) · `vc/diploma.json`(충남대 졸업증명서).
+  각 회로가 요구하는 클레임만 담는다. witness 는 검증 시 메모리로 생성.
 - **조건 회로**(무엇을·어떤 조건을 증명할지)는 `scenarios/` 에 → `<name>.circom`
-- **사전정보**(발급기관 공개키·대학 학교코드·대전 거주코드·청년 나이기준)는 `scenarios/_registry.circom` 에 → 각 회로가 include
-- **로직**(일반 소스코드)은 이 루트에 → `witness.mjs`(vc→입력) · `sign.mjs`(발급 서명) · `build.js`(키 생성) · `verify.mjs`(증명+검증)
-- 생성물 `build/`, `ptau/` 는 gitignore (소스만 추적). `vc.json` 은 테스트 픽스처라 추적.
+- **사전정보**(발급기관 공개키·대학 학교코드·대전 거주코드·청년 나이기준·클레임 슬롯 번호)는
+  `scenarios/_registry.circom` 에 → 각 회로가 include
+- **로직**은 이 루트에 → `witness.mjs`(vc→입력) · `sign.mjs`(발급 서명) · `build.js`(키 생성) ·
+  `verify.mjs`(증명+검증) · `calldata.mjs`(온체인용 calldata) · `release.mjs`(컨트랙트로 내보내기)
+- 생성물 `build/`, `ptau/`, `archive/` 는 gitignore. 샘플 VC 와 `verification-keys/` 는 추적.
 
 ---
 
 ## 0) 발급 서명  (VC 클레임을 바꿨을 때만)
 
-`vc.json` 의 클레임을 SMT 로 구성해 root 를 만들고, 테스트 발급기관 개인키로 EdDSA 서명해
-그 결과(발급자 공개키·merkleRoot·signature)를 `vc.json` 에 되기록한다. **개인키가 필요한 유일한 단계.**
+각 샘플 VC 의 클레임을 SMT 로 구성해 root 를 만들고, 테스트 발급기관 개인키로 EdDSA 서명해
+그 결과(발급자 공개키·merkleRoot·signature)를 VC 에 되기록한다. **개인키가 필요한 유일한 단계.**
 
 ```bash
-yarn sign        # vc.json 클레임 → 서명 → vc.json 에 되기록
+yarn sign                    # 시나리오가 쓰는 샘플 VC 전부
+node sign.mjs vc/resident.json   # 특정 파일만
 ```
 
 ## 1) 검토 — 검증 실행  (verify = 증명 생성 → 검증)
 
-`vc.json` 하나만 읽어 witness 를 메모리로 만들고, 기존 키로 증명·검증한다(입력 파일도, 키 재생성도 없음).
+시나리오에 대응하는 샘플 VC 를 읽어 witness 를 메모리로 만들고, 기존 키로 증명·검증한다.
 출력 끝에 **`검증 결과: true` + `통과 ✅`** 면 정상.
 
 ```bash
-yarn verify regional_national_univ
 yarn verify youth_pass
+yarn verify regional_national_univ
+node verify.mjs youth_pass --vc vc/diploma.json   # 다른 VC 로 시도(실패를 보이는 용도)
 ```
 
-| 명령 | 회로 파일 | 무슨 조건을 증명 |
+| 시나리오 | 쓰는 VC | 무슨 조건을 증명 |
 |---|---|---|
-| `verify regional_national_univ` | `scenarios/regional_national_univ.circom` | SMT로 **university·validUntil** 포함 증명 + 발급기관 **EdDSA 서명** + **화이트리스트** + 학교코드가 **지방거점국립대 목록**(재학/졸업 불문) + **유효기간 내**(validUntil ≥ 현재) |
-| `verify youth_pass` | `scenarios/youth_pass.circom` | SMT로 **residence·birthDate** 포함 증명 + 발급기관 **EdDSA 서명** + **화이트리스트** + 거주지가 **대전**(시도코드 30) + **만 19~34세**(생년월일+현재날짜로 회로가 계산) |
+| `youth_pass` | `vc/resident.json` | SMT로 **residence·birthDate** 포함 증명 + 발급기관 **EdDSA 서명** + 거주지가 **대전**(시도코드 30) + **만 19~34세**(생년월일+현재날짜로 회로가 계산) |
+| `regional_national_univ` | `vc/diploma.json` | SMT로 **university·validUntil** 포함 증명 + 발급기관 **EdDSA 서명** + 학교코드가 **지방거점국립대 목록**(재학/졸업 불문) + **유효기간 내**(validUntil ≥ 현재) |
 
-**공개신호(nPublic=2) = `[currentDate, walletAddress]`** (온체인 검증용). 그 외 값(대학·거주·생년월일·서명)은 전부 비공개.
-- `currentDate` (YYYYMMDD): 나이·유효기간 판정 기준. 온체인에서 `block.timestamp`→YYYYMMDD 와 대조(시점 무결성).
-- `walletAddress`: 제출 지갑주소(A2 바인딩). 컨트랙트가 `msg.sender==walletAddress` 확인 → **도난 VP 를 다른 계정에서 사용 불가**. 회로에선 더미 제약으로 고정만 하고 조건엔 안 씀.
+**공개신호(nPublic=2) = `[currentDate, walletAddress]`**. 그 외 값(대학·거주·생년월일·서명)은 전부 비공개.
 
-**VC 엔 사람이 읽는 값만**(대학명·주소·생년월일), `witness.mjs` 가 공식 코드로 변환해 SMT 에 넣는다: 대학 =
-**교육부/대학알리미 학교코드**(2024-10-07), 거주 = **법정동 시도코드**(대전 30). **나이는 저장하지 않고** 회로가
+- `currentDate` (YYYYMMDD): 나이·유효기간 판정 기준. 온체인에서 `block.timestamp`→YYYYMMDD 와 대조.
+  **회로는 이 값을 검증하지 않는다** — 증명자가 정하는 공개 입력이고, 신뢰성은 컨트랙트의 시점 검사에서 나온다.
+- `walletAddress`: 제출 지갑주소(A2 바인딩). 컨트랙트가 `msg.sender == walletAddress` 를 확인한다.
+  회로에서는 `Num2Bits(160)` 으로 정규 인코딩만 강제하고 조건엔 쓰지 않는다.
+
+**VC 엔 사람이 읽는 값만**(대학명·주소·생년월일), `witness.mjs` 가 코드로 변환해 SMT 에 넣는다:
+대학 = 학교코드, 거주 = **법정동 시도코드**(대전 30). **나이는 저장하지 않고** 회로가
 `birthDate`+`currentDate` 로 매번 계산 → 유효기간과 무관하게 상·하한 자동 현행화.
-유효기간은 클레임 성질에 맞춤: 학교 증명서 = 5년(`validUntil` 검사), 거주 신원(주민등록증류) = 무기한(만료 검사 없음).
 
-verify 출력 순서: **대상 회로·조건 설명·입력** → `(1/2)` 증명 생성 → `(2/2)` 검증 → 결과.
+### 시나리오와 증명서는 짝이 맞아야 한다
 
-> **샘플 단순화**: circuits 는 핵심 동작만 보이므로 두 시나리오를 **하나의 `vc.json`**(모든 필드 포함)으로 구동한다.
-> 실제 앱에서는 지갑이 별개 증명서 여러 종을 보관한다 — 예: 만료된 재학증명서(5년 경과), 유효한 졸업증명서, 주민등록증(무기한), 운전면허증.
+주민등록증에는 `university` 클레임이 없으므로 거점국립대 패스를 **아예 증명할 수 없다**
+(포함증명 자체가 존재하지 않아 witness 생성에서 실패한다). 반대도 같다.
+지갑도 같은 규칙으로 VC 마다 가능한 시나리오를 판정한다(`wallet/core/lib/passIssuance.ts`).
 
 ## 2) 키 생성  (회로를 새로 만들거나 수정했을 때만)
 
 ```bash
 yarn build <name> [ptauPower]     # 예: yarn build youth_pass
+node release.mjs                  # Verifier.sol + 테스트 픽스처를 함께 내보낸다
 ```
 
-`ptauPower` 는 생략 시 회로 제약 수를 보고 **자동 선택**(충분한 `ptau/pot<n>_final.ptau` 가 있으면 재사용).
-단계: circom 컴파일 → Powers of Tau(phase1, 로컬) → groth16 setup(phase2) → 검증키 + **`Verifier.sol`**.
-결과물은 `build/<name>/` 에. (Groth16는 회로마다 setup이 필요 → 수정/신규 회로는 build 후 verify.)
+`release.mjs` 를 반드시 같이 돌린다. `build/<name>/Verifier.sol` 을 `contract/src/` 로 복사하고
+`contract/test/fixtures/proofs.json` 을 같은 zkey 로 다시 만들기 때문에, 검증자와 테스트가
+어긋날 수 없다. (예전에는 "회로 변경 시 이 파일을 재복사한다"는 수동 지시였고, 실제로 어긋났다.)
 
 ## 3) 새 조건 회로 추가
 
-1. `scenarios/<name>.circom` 작성 — 발급기관/코드 등 사전정보는 `_registry.circom` 에서 include.
-2. `witness.mjs` 에 해당 회로용 입력 빌더 추가 후 `SCENARIO_INPUT` 에 등록(공통 `vc.json` 기반).
-3. `yarn build <name>` → `yarn verify <name>`. (VC 클레임을 바꿨다면 먼저 `yarn sign`.)
+1. `scenarios/<name>.circom` 작성 — 사전정보는 `_registry.circom` 에서 include.
+   **아래 "회로 작성 시 반드시 넣을 제약"을 지킬 것.**
+2. `witness.mjs` 에 입력 빌더 추가 후 `SCENARIO_INPUT` 에 등록, `SCENARIO_VC` 에 쓸 샘플 VC 지정.
+3. `yarn build <name>` → `node release.mjs` → `yarn verify <name>`.
+4. 온체인에 붙이려면 검증자를 배포하고 `ZKCredentialSBT.registerPassType(passType, verifier, validity)`.
+
+---
+
+## ⚠️ 회로 작성 시 반드시 넣을 제약
+
+circomlib 의 `SMTVerifier`·`EdDSAPoseidonVerifier` 는 **스위치 입력을 그대로 신뢰한다.**
+이것을 제약하지 않으면 증명이 무의미해진다. 2026-09-06 에 실제로 이 문제로 취약점이 있었다
+(→ `../SECURITY.md`).
+
+```circom
+enabled_<claim> === 1;              // 0 이면 검사가 통째로 꺼진다
+fnc_<claim>     === 0;              // 1 이면 비포함 모드가 되어 value 를 자유롭게 고를 수 있다
+key_<claim>     === claimKey<X>();  // 안 묶으면 클레임 슬롯이 서로 바뀌어 쓰인다
+enabled_eddsa   === 1;              // 0 이면 서명 검증이 통째로 꺼진다
+```
+
+`key_*` 를 묶어야 하는 이유는 구체적이다 — **대전 시도코드 30 과 충북대학교 학교코드 30 이 같다.**
+슬롯을 고정하지 않으면 충북대 증명서의 university 리프로 "대전 거주"가 증명된다.
+
+`oldKey_*`·`oldValue_*`·`isOld0_*` 는 `fnc=0`·`enabled=1` 이면 circomlib 내부에서 `st_iold ≡ 0` 이
+되어 무력화되므로 제약하지 않아도 된다.
 
 ---
 
@@ -71,11 +103,32 @@ cargo install --git https://github.com/iden3/circom.git circom   # circom 컴파
 yarn install                                                     # circomlib + circomlibjs + snarkjs
 ```
 
-## 관련
-
-- `../verifier-web` → `yarn zk:selftest` : 참조 회로를 브라우저 없이 로컬 증명+검증.
-- 변경 검토: `git -C .. status` · `git -C .. diff`.
-
 ## 트러스티드 셋업 노트 (Groth16)
 
-phase-2 setup은 회로별. 여기 phase-1 Powers of Tau는 **1인 로컬 = 데모용**(프로덕션은 검증된 커뮤니티 ptau를 `ptau/pot<power>_final.ptau` 로 넣으면 재사용).
+**재빌드는 같은 결과를 내지 않는다.** `build.js` 가 고정 엔트로피 문자열을 주지만 snarkjs 가
+그 앞에 난수를 섞는다(`snarkjs/src/misc.js` → `getRandomRng` → `getRandomBytes(64)`).
+
+| 산출물 | 재빌드 시 |
+|---|---|
+| `*.wasm`, `*.r1cs` (circom 컴파일) | **동일**(실측 확인) |
+| `zkey new` (groth16 setup) | 동일 — 난수 미사용 |
+| `*_final.zkey` (`zkey contribute`) · `verification_key.json` · `Verifier.sol` | **매번 다름** |
+
+시드를 박아 고정하면 안 된다. `contribute` 를 건너뛰거나 시드를 저장소에 넣으면 Groth16 의
+delta 가 공개값이 되어 **누구나 증명을 위조할 수 있다.** 재현성과 건전성은 이 단계에서 상충한다.
+
+따라서 **배포된 검증자에 대응하는 zkey 를 잃으면 그 컨트랙트용 증명을 다시는 만들 수 없다.**
+`archive/<날짜>-groth16-v<n>/` 에 zkey·wasm·vkey·ptau 를 SHA256SUMS 와 함께 읽기 전용으로
+보관한다(gitignore, 재빌드가 건드리지 않는다). 검증키만 `verification-keys/` 에 추적한다 —
+배포된 검증자의 정본 규격이며, zkey 없이도 증명을 *검증* 할 수 있다.
+
+phase-1 Powers of Tau 는 **1인 로컬 = 데모용**. 프로덕션은 검증된 커뮤니티 ptau 를
+`ptau/pot<power>_final.ptau` 로 넣으면 재사용된다.
+
+**향후과제**: `snarkjs zkey beacon` 으로 공개 비콘값(셋업 이후 시점의 블록 해시 등)을 써서
+마무리하면 재현 가능하면서도 건전하다. 실제 대형 세리머니가 쓰는 방식이다.
+
+## 관련
+
+- `../contract` — 검증자와 발급 컨트랙트. `release.mjs` 가 이쪽으로 내보낸다.
+- `../SECURITY.md` — 2026-09-06 회로 취약점 분석과 수정 내역.

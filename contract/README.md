@@ -18,8 +18,9 @@
 | `YouthPassVerifier.sol` | 지역청년패스(대전 거주 + 만 19~34세) — 회로 `youth_pass` 산출물 |
 | `RegionalUnivVerifier.sol` | 지방거점국립대 재학/졸업 — 회로 `regional_national_univ` 산출물 |
 
-검증자 2종은 **회로 산출물**(`snarkjs exportsolidityverifier`) — 직접 수정 금지, 회로 변경 시 재복사.
-검증키 상수는 `../circuits/build/<name>/Verifier.sol` 과 동일하며 컨트랙트 이름만 바꿔 넣는다.
+검증자 2종은 **회로 산출물**(`snarkjs exportsolidityverifier`) — 직접 수정 금지.
+회로를 고쳤으면 `cd ../circuits && yarn build <name> && node release.mjs` 를 돌린다.
+`release.mjs` 가 `Verifier.sol` 복사와 테스트 픽스처 생성을 **함께** 하므로 둘이 어긋날 수 없다.
 
 ### 왜 시나리오마다 컨트랙트를 만들지 않는가
 
@@ -36,7 +37,8 @@
 공개신호 `[currentDate(YYYYMMDD), walletAddress]` 기준:
 
 1. `verifier.verifyProof(...)` — 해당 패스 타입에 등록된 회로 검증자
-2. `msg.sender == walletAddress` — **제출자 바인딩(A2)**. 도난 VP 를 다른 계정에서 쓰지 못하게 막는다
+2. `msg.sender == walletAddress` — **제출자 바인딩(A2)**. 도난 **VP**(증명)를 다른 계정에서 쓰지 못하게 막는다.
+   VC 자체는 소지자 토큰이라는 점은 별개다 — `../SECURITY.md` 참고
    (국내특허 2025-1-328-KR「블록체인 지갑 주소 바인딩 기반 영지식 증명 인증 시스템」)
 3. `currentDate ≈ block.timestamp`(KST 변환, 어제까지 허용) — 과거 날짜로 나이·만료를 우회하지 못하게
 
@@ -77,10 +79,10 @@ hasValidPass(address holder, uint256 passType) → bool  // 메타버스 접근 
 
 ```bash
 forge build
-forge test -vv     # 실제 회로 증명(circuits/vc.json 기반)으로 온체인 발급까지 검증
+forge test -vv     # 실제 회로 증명(circuits/vc/*.json 기반)으로 온체인 발급까지 검증
 ```
 
-`test/ZKCredentialSBT.t.sol` 은 고정 증명 calldata + `vm.warp`(2026-07-27 KST)로 **17건**을 확인한다:
+`test/ZKCredentialSBT.t.sol` 은 `test/fixtures/proofs.json`(circuits/release.mjs 생성)을 읽어 **19건**을 확인한다:
 정상발급 2종 · A2거부 · 시점거부 · 허용오차 · 잘못된증명거부 · 전송거부 · 표준지원 ·
 타입교차보유 · 재증명갱신 · 만료 · 무기한 · 미등록타입 · 재등록거부 · 비소유자등록거부 · 폐지 · 미보유조회.
 
@@ -93,22 +95,29 @@ forge script script/DeployZKCredentialSBT.s.sol:DeployZKCredentialSBT \
 
 발급자 1개 + 검증자 2개를 배포하고 패스 타입 2종을 등록한다.
 
-> **주의**: `ZKCredentialSBT` 는 CREATE2(`new X{salt:}`)로 배포하지 않는다. CREATE2 로 올리면
-> 생성자의 `msg.sender` 가 배포 팩토리가 되어 소유권이 팩토리로 잡히고 `registerPassType` 을
-> 영영 호출할 수 없다. 그래서 소유자를 생성자 인자로 명시한다. 검증자는 상태가 없어 CREATE2 로 고정해도 안전하다.
+> **주의**: CREATE2(`new X{salt:}`)를 쓰지 않는다. CREATE2 로 올리면 생성자의 `msg.sender` 가
+> 배포 팩토리가 되어 소유권이 팩토리로 잡히고 `registerPassType` 을 영영 호출할 수 없다.
+> 그래서 소유자를 생성자 인자로 명시한다.
+
+**Sepolia v2 (2026-09-06)** — v1(`0xF66B3b93…`)은 회로 취약점으로 폐기(`../SECURITY.md`).
+
+| | 주소 |
+|---|---|
+| `ZKCredentialSBT` | `0x11AbB46d6099D541e544Ac8bB38820046de6D797` |
+| `YouthPassVerifier` | `0x0d0ddb95EfB56b9770Da92B937b3303154484318` |
+| `RegionalUnivVerifier` | `0x956F42f94ECDf9f9CD20086E7AFEB88572246883` |
 
 ### 배포 후 갱신 필요
 
-- `verifier-web/src/config/deployment.config.js` — SBT 주소. 함수명·시그니처도 구버전
-  (`mintSBT(...,uint256[5],string)`)이라 `mintPass(uint256,...,uint256[2],string)` 로 갱신해야 한다
-- `contract/QUERY.md`, `contract/scripts/query-sbt.js` — 조회 대상 주소·컨트랙트명
+- `wallet/core/config/deployment.config.ts` · `verifier-web/src/config/deployment.config.js` — SBT·검증자 주소
+- `contract/QUERY.md` — 아직 구버전(정리 대상). `scripts/query-sbt.js` 는 설정 파일을 import 하므로 자동 반영된다
 - (별도 저장소) `metaverse-world/metaverse-scene/blockchain/tokenService.ts` 의 `Credentials/BADGE`
   주소를 새 `ZKCredentialSBT` 로 바꿔야 씬이 ZK 발급분을 읽는다
 
 ### 새 시나리오 추가
 
-1. `../circuits` 에서 회로 작성 → `yarn build <name>` → `build/<name>/Verifier.sol` 산출
-2. 이 저장소 `src/` 에 복사(컨트랙트 이름만 변경) → 배포
+1. `../circuits` 에서 회로 작성 → `yarn build <name>` → `node release.mjs` (Verifier.sol 자동 복사)
+2. 새 검증자 배포
 3. 이미 배포된 `ZKCredentialSBT` 에 `registerPassType(newType, newVerifier, validity)` 호출
 
 SBT 주소도, 메타버스 씬의 설정도 그대로다.

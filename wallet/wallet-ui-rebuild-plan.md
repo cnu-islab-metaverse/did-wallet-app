@@ -29,6 +29,15 @@
 - **컷오버로 해소된 실제 결함 2건**:
   1. 패키징 산출물(`YourAppName.exe`)이 `WALLET_VIEW` 없이 실행돼 **레거시 UI 를 띄우고 있었다.** 이제 실 셸이 실린다.
   2. 레거시 `App.tsx` 에는 `wallet-rpc-approval`/`wallet-vc-updated` 리스너가 **하나도 없어서**, 확장이 보낸 요청이 아무에게도 안 닿고 90초 뒤 자동 거절됐다. 실 셸은 두 이벤트를 모두 수신하므로 **설치본에서 확장 연동이 비로소 동작한다.**
+## 진행 현황 (2026-09-06) — 온체인 축 완성 + 회로 취약점 수정
+- [x] **ZKCredentialSBT 배포**(Sepolia): 범용 발급자 1개 + 검증자를 패스 타입으로 등록.
+  기간 만료·추가 전용 레지스트리 포함. 테스트 19건.
+- [x] **지갑 증명 모듈**: 메인 프로세스에서 fullProve → mintPass 직접 호출. 지갑에서 발급 성공.
+  snarkjs·circomlibjs 는 번들 제외(ESM 에서 __filename 참조로 죽는다). zkey 36MB 는 디스크에서 읽는다.
+- [x] **시드 VC 진짜 서명** + 재발급 이력 묶기. 만료 재학증명서로 발급 시도 시 회로가 거부.
+- [x] **메타버스 씬 연결**: hasValidPass 로 유효한 보유만 인정(만료 구분).
+- [x] **회로 건전성 취약점 발견·수정·재배포** — 자격증명 없이 유효한 증명이 만들어졌고 배포된
+  검증자가 통과시켰다. 상세는 저장소 루트 `SECURITY.md`. v1 폐기, v2 재배포 완료.
 - [ ] 다음: features 실데이터 연결(Phase 4) → **Phase 7 컷오버**(`ShellPreview` → 실 `App`) → 확장 popup 을 코어 위로 포팅(이때 `pages/popup/shared-src` 낡은 복사본과 죽은 `@shared` 별칭 정리).
 - 비고: UI 는 계획서의 `desktop/ui` 대신 **`core/ui`** 에 둠(데스크톱이 `App` 을 `core` 에서 마운트하는 기존 seam 유지). 확장(`wallet/extension`)은 데스크톱 완성 후 착수 — 그때 `pnpm install` 1회 필요.
 
