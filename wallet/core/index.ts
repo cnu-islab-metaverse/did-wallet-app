@@ -40,6 +40,10 @@ export { fetchPassRequest, formatValidity } from "./lib/passRequest";
 export type { PassIssuanceRequest, CheckedPassRequest, OnChainPassType } from "./lib/passRequest";
 export type { Scenario, ProofCalldata, IssueResult, OnChainPass } from "./lib/passIssuance";
 
+// 활동 기록
+export { listActivity, logActivity, startActivity, updateActivity, clearActivity, originsFrom, timeAgo, ACTIVITY_EVENT } from './lib/activityLog';
+export type { ActivityEntry, ActivityKind, ActivityStatus } from './lib/activityLog';
+
 // 증명서(VC) 보관소 + 상태 훅
 export { useVCs } from './state/useVCs';
 export * as vcStore from './lib/vcStore';

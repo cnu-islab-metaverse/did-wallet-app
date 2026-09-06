@@ -1,7 +1,7 @@
 // [작업] 렌더러측 지갑 RPC 처리기 — walletBridge 가 보낸 요청을 공유 core 지갑으로 수행한다.
 //        키·저장·승인은 모두 이 렌더러(신뢰 컨텍스트)에서. 발급은 데스크톱 승인 모달을 거친다.
 // [결과] initWalletRpc() 등록 후 확장(호스트→파이프→main)이 보낸 method 를 처리.
-import { getActiveAccount, getAllAccounts, hdWalletService, addressToDid, didMatchesAddress, vcStore, fetchPassRequest, scenariosForVc, SCENARIO_LABEL } from '../../core'
+import { getActiveAccount, getAllAccounts, hdWalletService, addressToDid, didMatchesAddress, vcStore, fetchPassRequest, scenariosForVc, SCENARIO_LABEL, logActivity } from '../../core'
 import { storageAdapter } from '../../core/lib/storageAdapter'
 import { STORAGE_KEYS } from '../../core/config/storage'
 
@@ -70,6 +70,8 @@ async function dispatch(method: string, params: any): Promise<any> {
       if (!approved) return { approved: false }
       const r = await vcStore.addVC(addr, vc)
       emitUpdated()
+      const kind = (Array.isArray(vc.type) ? vc.type.find((t: string) => t !== 'VerifiableCredential') : vc.type) || '증명서'
+      await logActivity(addr, { kind: 'vc', title: `${kind} 발급받음`, detail: vc.issuer?.name || vc.issuer?.id || vc.issuer, origin })
       return { approved: true, duplicate: r.duplicate === true, count: (await vcStore.getVCs(addr)).length }
     }
 
@@ -97,6 +99,7 @@ async function dispatch(method: string, params: any): Promise<any> {
       try {
         checked = await fetchPassRequest(input)
       } catch (e: any) {
+        await logActivity(addr, { kind: 'request', title: '발급 요청 거부', detail: String(e?.message || e), status: 'fail', origin: params?.origin })
         return { accepted: false, error: String(e?.message || e) }
       }
 
@@ -111,10 +114,9 @@ async function dispatch(method: string, params: any): Promise<any> {
       // 증명할 수 있는 증명서가 없으면 승인을 물을 이유가 없다.
       const held = await vcStore.getVCs(addr)
       if (!held.some((v: any) => scenariosForVc(v).includes(checked.request.scenario))) {
-        return {
-          accepted: false,
-          error: `이 요청에 맞는 증명서가 지갑에 없습니다 (${SCENARIO_LABEL[checked.request.scenario]}).`,
-        }
+        const error = `이 요청에 맞는 증명서가 지갑에 없습니다 (${SCENARIO_LABEL[checked.request.scenario]}).`
+        await logActivity(addr, { kind: 'request', title: '발급 요청 거부', detail: error, status: 'fail', origin: checked.request.origin?.url })
+        return { accepted: false, error }
       }
 
       const approved = await requestApproval('pass-issuance', checked)

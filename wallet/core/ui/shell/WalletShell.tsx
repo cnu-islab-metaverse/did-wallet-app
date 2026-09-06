@@ -7,6 +7,7 @@ import { useVCs } from '../../state/useVCs'
 import { isDevModeEnabled } from '../../config/dev.config'
 import { issuePass, canIssue, scenariosForVc, fetchOnChainPasses, SCENARIO_LABEL as SCENARIO_LABEL_MAP, type OnChainPass } from '../../lib/passIssuance'
 import { fetchPassRequest, formatValidity, type CheckedPassRequest } from '../../lib/passRequest'
+import { listActivity, startActivity, updateActivity, logActivity, originsFrom, timeAgo, ACTIVITY_EVENT, type ActivityEntry } from '../../lib/activityLog'
 
 // [실 셸] 데스크톱 지갑 본체 UI — 좌측 메뉴로 뷰 전환(대시보드 / 증명서·인증토큰 목록 / 활동 / 설정).
 // 계정·VC 는 실제 저장소(hdWalletService·vcStore)에 연결돼 있고, 확장에서 오는 승인 요청도 여기서 받는다.
@@ -30,23 +31,8 @@ const NAV = [
   { key: 'activity', label: '활동', d: ICONS.activity },
   { key: 'settings', label: '설정', d: ICONS.gear },
 ]
-const INIT_SBTS = [
-  { t: '지역청년패스', issuer: 'Daejeon Youth Pass · Sepolia', status: '보유', issued: '2026-07-20', contract: '0x9dCa1C3d54548E86ACc9341c6CA9bc0748B93539' },
-  { t: '지방거점국립대 소속', issuer: 'Regional Univ Pass · Sepolia', status: '보유', issued: '2026-07-25', contract: '0x7bE9c3f0aA4d2e51C6b8dF9012aB34Cd56Ef7890' },
-]
-const ACTIVITY = [
-  { d: ICONS.token, title: '지역청년패스 인증토큰 발급', sub: 'Sepolia · 온체인 발급(mint)', time: '3일 전' },
-  { d: ICONS.activity, title: "‘만 19~34세’ 영지식 증명 제시", sub: '검증자: 대전청년몰', time: '6일 전' },
-  { d: ICONS.doc, title: '졸업증명서 발급받음', sub: '충남대학교', time: '2주 전' },
-  { d: ICONS.doc, title: '운전면허증 발급받음', sub: '경찰청', time: '3주 전' },
-  { d: ICONS.doc, title: '주민등록증 발급받음', sub: '행정안전부', time: '1개월 전' },
-]
 const TRUST = ['행정안전부', '경찰청', '충남대학교', '한국산업인력공단', '국민건강보험공단']
-const CONNECTED = [
-  { name: '정부24 발급기관 (데모)', origin: 'http://localhost:20251' },
-  { name: '충남대 증명서 발급 (데모)', origin: 'http://localhost:20252' },
-  { name: '대전청년몰 검증자 (데모)', origin: 'http://localhost:20260' },
-]
+const ACT_ICON = { pass: ICONS.token, vc: ICONS.doc, request: ICONS.activity, account: ICONS.gear }
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
 
 // 화면 폭 감지 — 넓으면 우측 상세 패널, 좁으면 모달.
@@ -180,20 +166,18 @@ export const WalletShell: React.FC = () => {
   const [logoutAsk, setLogoutAsk] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
-  // 실데이터에 아직 연결되지 않은 화면(활동 내역·연결된 서비스)은 dev 빌드에서만 목데이터를 보여준다.
-  // 배포 빌드는 빈 목록으로 시작한다.
+  // 시드 VC 는 진짜 발급기관 서명이 붙은 것이라 dev 에서만 넣는다(그 외 목데이터는 없다).
   const showMocks = isDevModeEnabled()
-  const activity = showMocks ? ACTIVITY : []
-  const connected = showMocks ? CONNECTED : []
   const vcHook = useVCs(wallet.active?.address, showMocks ? DEMO_VCS : undefined)
   // 목록에는 계보별 최신 발급본만 세운다. 이전 발급본은 상세의 '재발급 이력' 로 접힌다.
   const vcGroups = vcHook.groups
   const vcs = vcGroups.map((g) => g.current)
   const historyOf = (vc: any) => vcGroups.find((g) => g.current === vc)?.history ?? []
   const lineageOf = (vc: any) => vcGroups.find((g) => g.current === vc)?.lineage ?? null
-  const [sbts, setSbts] = useState<any[]>(showMocks ? INIT_SBTS : [])
-  // 온체인에서 실제로 읽어온 보유 패스. 목데이터와 달리 체인 상태다.
+  const [sbts, setSbts] = useState<any[]>([])
+  // 온체인에서 실제로 읽어온 보유 패스.
   const [chainPasses, setChainPasses] = useState<OnChainPass[]>([])
+  const [activity, setActivity] = useState<ActivityEntry[]>([])
   const [issuing, setIssuing] = useState<string | null>(null)  // 진행 단계 문구
   const [issueErr, setIssueErr] = useState('')
   const [issuedResult, setIssuedResult] = useState<any | null>(null)
@@ -227,7 +211,22 @@ export const WalletShell: React.FC = () => {
   }, [activeAddress])
   useEffect(() => { void refreshChainPasses() }, [refreshChainPasses])
 
-  // 화면에 뿌릴 목록 = 온체인 보유분 + (dev 목데이터)
+  // 활동 기록. 쓰는 쪽(발급·저장·요청)이 이벤트를 쏘면 다시 읽는다.
+  const refreshActivity = React.useCallback(async () => {
+    if (!activeAddress) { setActivity([]); return }
+    setActivity(await listActivity(activeAddress))
+  }, [activeAddress])
+  useEffect(() => {
+    void refreshActivity()
+    const on = () => { void refreshActivity() }
+    window.addEventListener(ACTIVITY_EVENT, on)
+    return () => window.removeEventListener(ACTIVITY_EVENT, on)
+  }, [refreshActivity])
+
+  // 연결된 서비스 = 기록에 남은 출처. 별도의 연결 권한 모델은 없다.
+  const connected = originsFrom(activity)
+
+  // 화면에 뿌릴 목록 = 온체인 보유분 + 직접 추가분
   const sbtList = [
     ...chainPasses.map((p) => ({
       t: p.label,
@@ -258,17 +257,29 @@ export const WalletShell: React.FC = () => {
   const runRequestedIssue = (r: CheckedPassRequest) => {
     void (async () => {
       setIssueErr('')
+      const label = SCENARIO_LABEL_MAP[r.request.scenario]
       const vc = vcs.find((v) => scenariosForVc(v).includes(r.request.scenario))
-      if (!vc) { setIssueErr(`이 요청에 맞는 증명서가 없습니다 (${SCENARIO_LABEL_MAP[r.request.scenario]}).`); return }
+      if (!vc) {
+        setIssueErr(`이 요청에 맞는 증명서가 없습니다 (${label}).`)
+        await logActivity(acc.address, { kind: 'pass', title: `${label} 발급 실패`, detail: '맞는 증명서가 없습니다', status: 'fail', origin: r.request.origin?.url })
+        return
+      }
+      const id = await startActivity(acc.address, {
+        kind: 'pass', title: `${label} 인증토큰 발급`, detail: '요청 승인됨', origin: r.request.origin?.url,
+      })
       try {
         const res = await issuePass(vc, {
           scenario: r.request.scenario,
           tokenURI: r.request.tokenURI,
           target: { contract: r.request.contract, passType: r.request.passType },
-          onStage: (st) => setIssuing(st),
+          onStage: (st) => { setIssuing(st); void updateActivity(acc.address, id, { detail: st }) },
         })
         setIssuedResult(res); await refreshChainPasses()
-      } catch (e: any) { setIssueErr(e?.message || String(e)) }
+        await updateActivity(acc.address, id, { status: 'ok', detail: 'Sepolia · 온체인 발급 완료', txHash: res.txHash, tokenId: res.tokenId })
+      } catch (e: any) {
+        setIssueErr(e?.message || String(e))
+        await updateActivity(acc.address, id, { status: 'fail', detail: e?.message || String(e) })
+      }
       finally { setIssuing(null) }
     })()
   }
@@ -281,17 +292,28 @@ export const WalletShell: React.FC = () => {
     setReqRespond(null)
     setChecked(null)
     if (approved && r) runRequestedIssue(r)
+    else if (r) void logActivity(acc.address, {
+      kind: 'request', title: '발급 요청 거절', origin: r.request.origin?.url,
+      detail: SCENARIO_LABEL_MAP[r.request.scenario], status: 'fail',
+    })
   }
 
   const runIssue = (vc: any) => {
     void (async () => {
       setIssueErr('')
+      const id = await startActivity(acc.address, { kind: 'pass', title: '인증토큰 발급', detail: vcTitle(vc) })
       try {
-        const r = await issuePass(vc, { onStage: (st) => setIssuing(st) })
+        const r = await issuePass(vc, { onStage: (st) => { setIssuing(st); void updateActivity(acc.address, id, { detail: st }) } })
         setIssuedResult(r)
         await refreshChainPasses()
+        await updateActivity(acc.address, id, {
+          status: 'ok',
+          title: `${SCENARIO_LABEL_MAP[r.scenario as keyof typeof SCENARIO_LABEL_MAP] ?? r.scenario} 인증토큰 발급`,
+          detail: 'Sepolia · 온체인 발급 완료', txHash: r.txHash, tokenId: r.tokenId,
+        })
       } catch (e: any) {
         setIssueErr(e?.message || String(e))
+        await updateActivity(acc.address, id, { status: 'fail', detail: e?.message || String(e) })
       } finally {
         setIssuing(null)
       }
@@ -309,6 +331,7 @@ export const WalletShell: React.FC = () => {
         if (!raw || typeof raw !== 'object') throw new Error('객체가 아닙니다')
         const r = await vcHook.addVC(raw)
         if (!r.ok) { setErr(r.duplicate ? '이미 보관 중인 증명서입니다.' : '저장에 실패했습니다.'); return }
+        await logActivity(acc.address, { kind: 'vc', title: `${vcTitle(raw)} 보관`, detail: vcIssuer(raw) })
         setPaste(''); setErr(''); setAdding(false)
       } catch (e: any) { setErr('올바른 VC JSON 이 아닙니다: ' + (e?.message || e)) }
     })()
@@ -377,6 +400,28 @@ export const WalletShell: React.FC = () => {
   const isExpired = (v: any) => v?.validUntil && new Date(v.validUntil).getTime() < Date.now()
   const vcsShown = vcFilter === 'all' ? vcs : vcs.filter((v) => (vcFilter === 'expired' ? isExpired(v) : !isExpired(v)))
 
+  const actRow = (a: ActivityEntry, i: number, arr: ActivityEntry[], pad: string) => (
+    <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: pad, borderBottom: i < arr.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
+      <div style={{ width: 32, height: 32, borderRadius: 7, display: 'grid', placeItems: 'center', flex: 'none', ...accentTile }}><Icon d={ACT_ICON[a.kind]} size={16} /></div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7 }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</span>
+          {a.status === 'pending' && <Badge tone="muted">진행 중</Badge>}
+          {a.status === 'fail' && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--btn-danger)', flex: 'none' }}>실패</span>}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--color-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {[a.detail, a.origin].filter(Boolean).join(' · ')}
+        </div>
+      </div>
+      <span style={{ fontSize: 12, color: 'var(--color-muted)', flex: 'none' }}>{timeAgo(a.ts)}</span>
+    </div>
+  )
+  const actEmpty = (
+    <div style={{ padding: '22px 18px', fontSize: 13, color: 'var(--color-muted)' }}>
+      아직 활동이 없습니다. 증명서를 보관하거나 인증토큰을 발급받으면 여기에 남습니다.
+    </div>
+  )
+
   // ── 대시보드 ──────────────────────────────────────────────
   const Dashboard = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -437,16 +482,8 @@ export const WalletShell: React.FC = () => {
           <div style={{ flex: 1 }} />
           <Button size="sm" variant="ghost" onClick={() => setActive('activity')}>전체 보기</Button>
         </div>
-        {activity.slice(0, 4).map((a, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '11px 18px', borderBottom: i < 3 ? '1px solid var(--color-border)' : 'none' }}>
-            <div style={{ width: 32, height: 32, borderRadius: 7, display: 'grid', placeItems: 'center', flex: 'none', ...accentTile }}><Icon d={a.d} size={16} /></div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 600 }}>{a.title}</div>
-              <div style={{ fontSize: 12, color: 'var(--color-muted)' }}>{a.sub}</div>
-            </div>
-            <span style={{ fontSize: 12, color: 'var(--color-muted)', flex: 'none' }}>{a.time}</span>
-          </div>
-        ))}
+        {activity.length === 0 && actEmpty}
+        {activity.slice(0, 4).map((a, i, arr) => actRow(a, i, arr, '11px 18px'))}
       </section>
     </div>
   )
@@ -515,8 +552,10 @@ export const WalletShell: React.FC = () => {
         <Button size="sm" variant="ghost" onClick={async () => {
           // 재발급 이력이 있으면 계보 전체를 지운다(이전 발급본만 남아 되살아나는 것을 막는다).
           const lin = lineageOf(vc)
-          if (lin && historyOf(vc).length > 0) await vcHook.removeLineage(lin)
+          const n = historyOf(vc).length
+          if (lin && n > 0) await vcHook.removeLineage(lin)
           else await vcHook.removeVC(vcHook.vcId(vc))
+          await logActivity(acc.address, { kind: 'vc', title: `${vcTitle(vc)} 삭제`, detail: n > 0 ? `재발급 이력 ${n + 1}건 함께 삭제` : vcIssuer(vc) })
           setDetailVc(null)
         }} style={{ color: 'var(--btn-danger)' }}>
           {historyOf(vc).length > 0 ? `이 증명서 삭제 (이력 ${historyOf(vc).length + 1}건)` : '이 증명서 삭제'}
@@ -639,19 +678,17 @@ export const WalletShell: React.FC = () => {
     <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
       <section style={{ flex: '1 1 440px', minWidth: 0, maxWidth: 720, border: '1px solid var(--color-border-strong)', borderRadius: 8, background: 'var(--panel-bg)', overflow: 'hidden' }}>
         <div style={{ padding: '12px 18px', borderBottom: '1px solid var(--color-border)' }}><strong style={{ fontSize: 14.5 }}>활동 내역</strong></div>
-        {activity.map((a, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '13px 18px', borderBottom: i < activity.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
-            <div style={{ width: 34, height: 34, borderRadius: 7, display: 'grid', placeItems: 'center', flex: 'none', ...accentTile }}><Icon d={a.d} size={16} /></div>
-            <div style={{ flex: 1 }}><div style={{ fontSize: 13.5, fontWeight: 600 }}>{a.title}</div><div style={{ fontSize: 12, color: 'var(--color-muted)' }}>{a.sub}</div></div>
-            <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>{a.time}</span>
-          </div>
-        ))}
+        {activity.length === 0 && actEmpty}
+        {activity.map((a, i, arr) => actRow(a, i, arr, '13px 18px'))}
       </section>
       <aside style={{ flex: '1 1 250px', minWidth: 220, maxWidth: 300, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={railCard}>
           <div style={railHead}>요약</div>
           <div style={{ padding: 12, display: 'grid', gap: 7, fontSize: 12.5, color: 'var(--color-muted)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>총 활동</span><b style={{ color: 'var(--color-fg)' }}>{activity.length}건</b></div>
+            {activity.some((a) => a.status === 'pending') && (
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>진행 중</span><b style={{ color: 'var(--color-fg)' }}>{activity.filter((a) => a.status === 'pending').length}건</b></div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}><span>계정</span><b style={{ color: 'var(--color-fg)', fontFamily: 'var(--font-mono)' }}>{short(acc.address)}</b></div>
           </div>
         </div>
@@ -688,7 +725,11 @@ export const WalletShell: React.FC = () => {
 
       <Section title={`신뢰 발급기관 (화이트리스트 ${TRUST.length})`} rows={TRUST.map((n) => ({ label: n, ctrl: <Badge>신뢰됨</Badge> }))} />
 
-      <Section title="연결된 서비스" rows={connected.map((c) => ({ label: c.name, sub: c.origin, ctrl: <Button size="sm" variant="ghost">연결 해제</Button> }))} />
+      <Section title="연결된 서비스" rows={
+        connected.length
+          ? connected.map((c) => ({ label: c.origin, sub: `요청 ${c.count}회 · 마지막 ${timeAgo(c.last)}`, ctrl: undefined }))
+          : [{ label: '없음', sub: '이 지갑에 요청을 보낸 사이트가 아직 없습니다.' }]
+      } />
 
       <Section title="개발자" rows={[
         { label: '데스크톱 브리지', sub: '확장 프로그램 연동 (Native Messaging)', ctrl: <Badge>연결됨</Badge> },
