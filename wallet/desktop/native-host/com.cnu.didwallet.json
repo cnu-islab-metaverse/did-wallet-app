@@ -1,9 +1,0 @@
-{
-  "name": "com.cnu.didwallet",
-  "description": "CNU DID Wallet native messaging host (research demo)",
-  "path": "D:\\OneDrive\\dev\\did-wallet-app\\wallet\\desktop\\native-host\\host-launcher.bat",
-  "type": "stdio",
-  "allowed_origins": [
-    "chrome-extension://jhopaglbmnamnkodmdnmlgaenofdjgac/"
-  ]
-}

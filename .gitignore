@@ -326,3 +326,6 @@ contract/meta/
 # yarn.lock
 # package-lock.json
 # pnpm-lock.yaml
+
+# 네이티브 호스트 매니페스트 — register:host 가 로컬 경로·확장 ID 로 생성한다
+wallet/desktop/native-host/com.cnu.didwallet.json
