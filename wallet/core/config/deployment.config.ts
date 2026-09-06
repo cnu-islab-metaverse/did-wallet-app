@@ -39,12 +39,12 @@ const DEPLOYMENT_CONFIGS: Record<DeploymentEnvironment, DeploymentConfig> = {
   },
   sepolia: {
     environment: 'sepolia',
-    // 2026-09-05 배포. 소유자 0xdDb968E5D31fD578115096f1e2BE33Bdb7F348B2
+    // 2026-09-06 배포(v2 — 회로 건전성 수정본). 소유자 0xdDb968E5D31fD578115096f1e2BE33Bdb7F348B2
     contract: {
-      zkCredentialSBT: '0xF66B3b93b5FeC7f8Bd169dcd3589bf45c673E021',
+      zkCredentialSBT: '0x11AbB46d6099D541e544Ac8bB38820046de6D797',
       verifiers: {
-        youthPass: '0x2cEfc1eb31A6b75A4c40b4c8111Ef6998304ee59',
-        regionalUniv: '0xA0ad136FABd87e00DadaE2cE82f92fa9d97533c8',
+        youthPass: '0x0d0ddb95EfB56b9770Da92B937b3303154484318',
+        regionalUniv: '0x956F42f94ECDf9f9CD20086E7AFEB88572246883',
       },
     },
     network: {

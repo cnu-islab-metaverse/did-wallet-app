@@ -26,12 +26,13 @@ contract DeployZKCredentialSBT is Script {
         vm.startBroadcast();
         address deployer = msg.sender;
 
-        // 검증자는 상태가 없어 CREATE2 로 주소를 고정해도 안전하다.
-        YouthPassVerifier youthV = new YouthPassVerifier{salt: keccak256("youth-pass-verifier:v1")}();
-        RegionalUnivVerifier rnuV = new RegionalUnivVerifier{salt: keccak256("regional-univ-verifier:v1")}();
+        // CREATE2 를 쓰지 않는다. 결정적 주소가 필요 없고, 같은 bytecode 로 재실행하면
+        // 이미 존재하는 주소라 revert 하는 실패 모드만 생긴다.
+        YouthPassVerifier youthV = new YouthPassVerifier();
+        RegionalUnivVerifier rnuV = new RegionalUnivVerifier();
 
-        // 발급자는 일반 배포로 올린다. CREATE2 를 쓰면 생성자의 msg.sender 가 배포 팩토리가 되어
-        // 소유권이 팩토리로 잡히므로, 소유자를 명시적으로 넘겨 배포자에게 귀속시킨다.
+        // 소유자를 명시적으로 넘겨 배포자에게 귀속시킨다(CREATE2 를 쓰면 생성자의 msg.sender 가
+        // 배포 팩토리가 되어 소유권이 엉뚱한 곳으로 간다).
         ZKCredentialSBT sbt = new ZKCredentialSBT(deployer);
 
         sbt.registerPassType(TYPE_YOUTH, address(youthV), YOUTH_VALIDITY);
