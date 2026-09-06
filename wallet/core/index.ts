@@ -36,6 +36,8 @@ export { WalletShell } from './ui/shell/WalletShell';
 // ZK 증명 → 온체인 SBT 발급 (데스크톱 전용; 증명은 메인 프로세스에서 수행)
 export { issuePass, proveVc, canIssue, circuitReady, scenariosForVc, SCENARIO_LABEL, SCENARIO_PASS_TYPE } from "./lib/passIssuance";
 export { fetchOnChainPasses } from "./lib/passIssuance";
+export { fetchPassRequest, formatValidity } from "./lib/passRequest";
+export type { PassIssuanceRequest, CheckedPassRequest, OnChainPassType } from "./lib/passRequest";
 export type { Scenario, ProofCalldata, IssueResult, OnChainPass } from "./lib/passIssuance";
 
 // 증명서(VC) 보관소 + 상태 훅

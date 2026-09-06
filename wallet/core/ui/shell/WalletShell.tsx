@@ -6,6 +6,7 @@ import { useWallet } from '../../state/useWallet'
 import { useVCs } from '../../state/useVCs'
 import { isDevModeEnabled } from '../../config/dev.config'
 import { issuePass, canIssue, scenariosForVc, fetchOnChainPasses, SCENARIO_LABEL as SCENARIO_LABEL_MAP, type OnChainPass } from '../../lib/passIssuance'
+import { fetchPassRequest, formatValidity, type CheckedPassRequest } from '../../lib/passRequest'
 
 // [실 셸] 데스크톱 지갑 본체 UI — 좌측 메뉴로 뷰 전환(대시보드 / 증명서·인증토큰 목록 / 활동 / 설정).
 // 계정·VC 는 실제 저장소(hdWalletService·vcStore)에 연결돼 있고, 확장에서 오는 승인 요청도 여기서 받는다.
@@ -196,6 +197,12 @@ export const WalletShell: React.FC = () => {
   const [issuing, setIssuing] = useState<string | null>(null)  // 진행 단계 문구
   const [issueErr, setIssueErr] = useState('')
   const [issuedResult, setIssuedResult] = useState<any | null>(null)
+  // 검증자(플랫폼)가 준 발급 요청. 지갑이 대상을 들고 있는 게 아니라 요청이 지정한다.
+  const [reqOpen, setReqOpen] = useState(false)
+  const [reqInput, setReqInput] = useState('')
+  const [reqBusy, setReqBusy] = useState(false)
+  const [reqErr, setReqErr] = useState('')
+  const [checked, setChecked] = useState<CheckedPassRequest | null>(null)
   const [detailVc, setDetailVc] = useState<any | null>(null)
   const [detailSbt, setDetailSbt] = useState<any | null>(null)
   const [adding, setAdding] = useState(false)
@@ -233,6 +240,37 @@ export const WalletShell: React.FC = () => {
   ]
 
   // VC → ZK 증명 → 온체인 mintPass. 증명은 메인 프로세스에서 수 초 걸린다.
+  // 붙여넣은 URL(또는 JSON)로 요청을 가져와 온체인으로 검증한다.
+  const loadRequest = () => {
+    void (async () => {
+      setReqErr(''); setReqBusy(true)
+      try {
+        const r = await fetchPassRequest(reqInput)
+        setChecked(r); setReqOpen(false); setReqInput('')
+      } catch (e: any) { setReqErr(e?.message || String(e)) }
+      finally { setReqBusy(false) }
+    })()
+  }
+
+  // 요청이 지정한 대상으로 제출한다. 쓸 VC 는 시나리오로 고른다.
+  const runRequestedIssue = (r: CheckedPassRequest) => {
+    void (async () => {
+      setIssueErr('')
+      const vc = vcs.find((v) => scenariosForVc(v).includes(r.request.scenario))
+      if (!vc) { setIssueErr(`이 요청에 맞는 증명서가 없습니다 (${SCENARIO_LABEL_MAP[r.request.scenario]}).`); setChecked(null); return }
+      try {
+        const res = await issuePass(vc, {
+          scenario: r.request.scenario,
+          tokenURI: r.request.tokenURI,
+          target: { contract: r.request.contract, passType: r.request.passType },
+          onStage: (st) => setIssuing(st),
+        })
+        setChecked(null); setIssuedResult(res); await refreshChainPasses()
+      } catch (e: any) { setIssueErr(e?.message || String(e)) }
+      finally { setIssuing(null) }
+    })()
+  }
+
   const runIssue = (vc: any) => {
     void (async () => {
       setIssueErr('')
@@ -504,6 +542,9 @@ export const WalletShell: React.FC = () => {
           ? { flex: '0 0 188px', display: 'flex', flexDirection: 'column', gap: 12 }
           : { width: '100%', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
           <Button block={isWide} variant="primary" onClick={addHandler}>＋ {tab === 'vcs' ? '증명서 추가' : '인증토큰 추가'}</Button>
+          {tab === 'sbts' && canIssue() && (
+            <Button block={isWide} variant="line" onClick={() => { setReqErr(''); setReqOpen(true) }}>발급 요청 받기</Button>
+          )}
           {tab === 'vcs' && <Button block={isWide} variant="line" onClick={() => setVp(true)}>제시 (VP)</Button>}
           {tab === 'vcs' && (isWide
             ? <div style={railCard}><div style={railHead}>상태 필터</div><div style={{ padding: 10 }}>{filterChips}</div></div>
@@ -710,6 +751,63 @@ export const WalletShell: React.FC = () => {
       </Modal>
 
       {/* 인증토큰 추가(컨트랙트 조회) */}
+      {/* 플랫폼이 준 발급 요청 가져오기 */}
+      <Modal open={reqOpen} title="발급 요청 받기" onClose={() => setReqOpen(false)}
+        footer={<><Button variant="ghost" onClick={() => setReqOpen(false)}>취소</Button>
+                 <Button variant="primary" disabled={reqBusy || !reqInput.trim()} onClick={loadRequest}>{reqBusy ? '확인 중…' : '가져오기'}</Button></>}>
+        <div style={{ display: 'grid', gap: 10 }}>
+          <div style={{ fontSize: 13, color: 'var(--color-muted)' }}>
+            메타버스 플랫폼에서 발급 요청 주소를 복사하거나 QR 을 읽어 붙여넣으세요.
+            지갑이 그 컨트랙트에 직접 물어 내용을 확인한 뒤 보여줍니다.
+          </div>
+          <Field label="요청 주소 또는 JSON">
+            <textarea value={reqInput} onChange={(e) => setReqInput(e.target.value)}
+              placeholder="http://localhost:20260/pass-request/…"
+              style={{ width: '100%', height: 90, fontFamily: 'var(--font-mono)', fontSize: 12, padding: 10, borderRadius: 6, border: '1px solid var(--color-border)', background: 'var(--panel-bg)', color: 'var(--color-fg)', resize: 'vertical', outline: 'none' }} />
+          </Field>
+          {reqErr && <div style={{ fontSize: 12.5, color: 'var(--btn-danger)', whiteSpace: 'pre-wrap' }}>{reqErr}</div>}
+        </div>
+      </Modal>
+
+      {/* 요청 승인 — 사이트의 주장이 아니라 체인에서 읽은 값을 보여준다 */}
+      <Modal open={!!checked} title="인증토큰 발급 요청" onClose={() => setChecked(null)}
+        footer={<><Button variant="ghost" onClick={() => setChecked(null)}>거절</Button>
+                 <Button variant="primary" disabled={!!issuing} onClick={() => checked && runRequestedIssue(checked)}>{issuing ?? '승인 · 발급받기'}</Button></>}>
+        {checked && (() => { const r = checked.request; const o = checked.onChain; return (
+          <div style={{ display: 'grid', gap: 12, fontSize: 13 }}>
+            <div>
+              <b>{r.origin.name}</b> 이(가) 인증토큰 발급을 요청했습니다.
+              <div style={{ fontSize: 12, color: 'var(--color-muted)', marginTop: 4 }}>{r.purpose}</div>
+            </div>
+            {checked.warnings.length > 0 && (
+              <div style={{ border: '1px solid var(--btn-danger)', borderRadius: 6, padding: 10, fontSize: 12.5 }}>
+                {checked.warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
+              </div>
+            )}
+            <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{ padding: '8px 12px', fontSize: 11.5, color: 'var(--color-muted)', borderBottom: '1px solid var(--color-border)' }}>
+                체인에서 확인한 내용 {checked.known ? '· 알려진 컨트랙트' : '· 처음 보는 컨트랙트'}
+              </div>
+              {[
+                ['발급 대상', `${o.tokenName} (${o.tokenSymbol})`],
+                ['컨트랙트', r.contract],
+                ['패스 종류', `${SCENARIO_LABEL_MAP[r.scenario]} · passType ${r.passType}`],
+                ['유효기간', formatValidity(o.validitySeconds)],
+                ['검증자', o.verifier],
+              ].map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', gap: 10, padding: '8px 12px', fontSize: 12.5, borderTop: '1px solid var(--color-border)' }}>
+                  <span style={{ width: 72, flex: 'none', color: 'var(--color-muted)' }}>{k}</span>
+                  <span style={{ wordBreak: 'break-all', fontFamily: /컨트랙트|검증자/.test(k) ? 'var(--font-mono)' : 'inherit' }}>{v}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--color-muted)' }}>
+              승인하면 영지식 증명을 만들어 이 컨트랙트에 제출합니다. 증명서 원본은 전송되지 않습니다.
+            </div>
+          </div>
+        ) })()}
+      </Modal>
+
       {/* 발급 결과 — 실제 온체인 트랜잭션 결과다(목데이터 아님) */}
       <Modal open={!!issuedResult} title="인증토큰 발급 완료" onClose={() => setIssuedResult(null)}
         footer={<Button variant="primary" onClick={() => { setIssuedResult(null); goList('sbts') }}>인증토큰 보기</Button>}>

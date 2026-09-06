@@ -92,7 +92,13 @@ export interface IssueResult {
  */
 export async function issuePass(
   vc: any,
-  opts: { scenario?: Scenario; tokenURI?: string; onStage?: (s: string) => void } = {},
+  opts: {
+    scenario?: Scenario
+    tokenURI?: string
+    onStage?: (s: string) => void
+    /** 검증자가 지정한 제출 대상. 없으면 지갑 설정의 기본 컨트랙트로 간다(개발 편의). */
+    target?: { contract: string; passType: number }
+  } = {},
 ): Promise<IssueResult> {
   const { onStage } = opts
   const scenario = opts.scenario ?? scenariosForVc(vc)[0]
@@ -101,8 +107,10 @@ export async function issuePass(
   const account = hdWalletService.getActiveAccount()
   if (!account) throw new Error('활성 계정이 없습니다')
 
+  // 제출 대상은 요청이 정한다. 지갑이 주소를 들고 있는 게 아니다.
   const info = getContractInfo()
-  if (!info.address) throw new Error('배포 주소가 설정되지 않았습니다(deployment.config)')
+  const contractAddress = opts.target?.contract ?? info.address
+  if (!contractAddress) throw new Error('제출 대상 컨트랙트가 없습니다 — 플랫폼에서 발급 요청을 받아오세요')
 
   // 증명은 VC 의 walletAddress 가 아니라 "지금 이 지갑" 에 묶여야 한다.
   const vcForProof = {
@@ -125,8 +133,8 @@ export async function issuePass(
   const net = getDeploymentConfig().network
   const provider = new ethers.JsonRpcProvider(net.rpcUrl, net.chainId)
   const signer = base.connect(provider)
-  const contract = new ethers.Contract(info.address, MINT_ABI, signer)
-  const passType = SCENARIO_PASS_TYPE[scenario]
+  const contract = new ethers.Contract(contractAddress, MINT_ABI, signer)
+  const passType = opts.target?.passType ?? SCENARIO_PASS_TYPE[scenario]
 
   onStage?.('온체인 발급 요청 중')
   const tx = await contract.mintPass(

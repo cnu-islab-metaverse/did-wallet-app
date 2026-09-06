@@ -3,6 +3,8 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import { createResidencyVpRequest } from './vp/requestGenerator';
+import QRCode from 'qrcode';
+import { createPassRequest, isScenario, scenarioLabel } from './pass/passRequest';
 
 const app = express();
 const PORT = process.env.PORT || 20252;
@@ -15,6 +17,41 @@ app.use(express.static(path.join(__dirname, 'static')));
 app.use('/circuit', express.static(path.join(__dirname, '..', 'circuit')));
 // Serve config files
 app.use('/config', express.static(path.join(__dirname, 'config')));
+
+// ── 패스 발급 요청 ───────────────────────────────────────────────────────
+// 검증자가 '무엇을 증명해 어디에 제출하라' 를 지갑에 알린다. 지갑은 이 값을 그대로 믿지 않고
+// contract·passType 을 온체인으로 다시 확인한다.
+const passRequests = new Map<string, ReturnType<typeof createPassRequest>>();
+
+function baseUrlOf(req: Request): string {
+  const host = req.get('host');
+  return `${req.protocol}://${Array.isArray(host) ? host[0] : host ?? 'localhost'}`;
+}
+
+// 요청 생성 → 지갑이 가져갈 URL 을 돌려준다.
+app.post('/pass-request', (req: Request, res: Response) => {
+  const scenario = (req.body?.scenario ?? req.query.scenario) as unknown;
+  if (!isScenario(scenario)) return res.status(400).json({ ok: false, error: '알 수 없는 시나리오' });
+  const pr = createPassRequest(scenario, baseUrlOf(req));
+  passRequests.set(pr.id, pr);
+  res.json({ ok: true, id: pr.id, url: `${baseUrlOf(req)}/pass-request/${pr.id}`, request: pr });
+});
+
+// 지갑이 이 URL 을 가져간다(붙여넣기 또는 QR).
+app.get('/pass-request/:id', (req: Request, res: Response) => {
+  const pr = passRequests.get(String(req.params.id));
+  if (!pr) return res.status(404).json({ ok: false, error: '만료되었거나 없는 요청입니다' });
+  res.json(pr);
+});
+
+// 시연용 QR — 같은 URL 을 담는다. 데스크톱 지갑은 붙여넣기를 쓰고,
+// QR 은 화면 시연과 향후 모바일 지갑·확장 연동을 위한 것이다.
+app.get('/pass-request/:id/qr.svg', async (req: Request, res: Response) => {
+  const pr = passRequests.get(String(req.params.id));
+  if (!pr) return res.status(404).send('not found');
+  const svg = await QRCode.toString(`${baseUrlOf(req)}/pass-request/${pr.id}`, { type: 'svg', margin: 1, width: 240 });
+  res.type('image/svg+xml').send(svg);
+});
 
 // Health
 app.get('/health', (_req: Request, res: Response) => {
