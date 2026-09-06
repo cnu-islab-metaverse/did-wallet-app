@@ -11,6 +11,7 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "sync:zk": "node scripts/sync-zk-assets.mjs",
+  "register:host": "node scripts/register-native-host.mjs",
     "predev": "yarn sync:zk && yarn sign:demo-vcs",
     "prebuild": "yarn sync:zk && yarn sign:demo-vcs",
     "sign:demo-vcs": "node scripts/sign-demo-vcs.mjs"

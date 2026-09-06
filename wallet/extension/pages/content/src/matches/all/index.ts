@@ -52,6 +52,38 @@ window.addEventListener('message', async (event) => {
     }
   }
 
+  // 메타버스 플랫폼이 만든 인증토큰 발급 요청을 데스크톱 지갑으로 전달한다.
+  // 페이지는 요청 URL 만 넘긴다 — 지갑이 그 URL 에서 직접 가져와 컨트랙트로 검증한다.
+  if (event.data.type === 'DID_WALLET_REQUEST_PASS') {
+    console.log('🎫 [Content Script] 인증토큰 발급 요청 받음:', event.data.url);
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'REQUEST_PASS_ISSUANCE',
+        url: event.data.url,
+        request: event.data.request,
+        origin: window.location.origin,
+      });
+
+      window.postMessage({
+        type: 'DID_WALLET_PASS_RESPONSE',
+        ok: !!response?.ok,
+        accepted: !!response?.accepted,
+        address: response?.address,
+        error: response?.error,
+      }, '*');
+    } catch (error: unknown) {
+      const msg = (error && (error as any).message) || String(error);
+      console.log('❌ [Content Script] 인증토큰 발급 요청 오류:', msg);
+      window.postMessage({
+        type: 'DID_WALLET_PASS_RESPONSE',
+        ok: false,
+        accepted: false,
+        error: msg || '인증토큰 발급 요청 실패',
+      }, '*');
+    }
+  }
+
   if (event.data.type === 'DID_WALLET_REQUEST_PROOF') {
     console.log('🧩 [Content Script] Proof 제출 요청 받음:', event.data);
     console.log('🧩 [Content Script] 요청 데이터:', {

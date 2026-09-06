@@ -32,6 +32,9 @@ function createDecoder(onMessage: (m: any) => void) {
   }
 }
 
+// 사용자 승인이 필요한 요청 — 모달이 다른 창 뒤에 뜨면 사용자가 못 보고 시간초과된다.
+const NEEDS_ATTENTION = new Set(['requestPassIssuance', 'requestVCIssuance'])
+
 export function startWalletBridge(getWindow: () => BrowserWindow | null): void {
   // 렌더러 RPC 상관관계(id 로 요청/응답 매칭)
   const pending = new Map<number, { resolve: (v: any) => void; reject: (e: any) => void }>()
@@ -49,6 +52,9 @@ export function startWalletBridge(getWindow: () => BrowserWindow | null): void {
     return new Promise((resolve, reject) => {
       const w = getWindow()
       if (!w) return reject(new Error('no-window'))
+      if (NEEDS_ATTENTION.has(method)) {
+        try { if (w.isMinimized()) w.restore(); w.show(); w.focus() } catch { /* */ }
+      }
       const id = ++seq
       pending.set(id, { resolve, reject })
       w.webContents.send('wallet-rpc-request', { id, method, params })

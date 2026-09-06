@@ -203,6 +203,8 @@ export const WalletShell: React.FC = () => {
   const [reqBusy, setReqBusy] = useState(false)
   const [reqErr, setReqErr] = useState('')
   const [checked, setChecked] = useState<CheckedPassRequest | null>(null)
+  // 확장을 통해 들어온 요청이면 승인/거절을 확장에 돌려줄 응답자가 함께 온다(붙여넣기면 null).
+  const [reqRespond, setReqRespond] = useState<((ok: boolean) => void) | null>(null)
   const [detailVc, setDetailVc] = useState<any | null>(null)
   const [detailSbt, setDetailSbt] = useState<any | null>(null)
   const [adding, setAdding] = useState(false)
@@ -269,6 +271,17 @@ export const WalletShell: React.FC = () => {
       } catch (e: any) { setIssueErr(e?.message || String(e)) }
       finally { setIssuing(null) }
     })()
+  }
+
+  // 요청 모달을 닫는다. 확장이 보낸 요청이면 결과를 돌려준다.
+  // 승인 시에는 발급을 기다리지 않고 곧바로 응답한다 — 확장(MV3 서비스워커)은
+  // 증명 생성과 트랜잭션 확정이 끝날 때까지 살아 있지 않다.
+  const settleRequest = (approved: boolean) => {
+    const r = checked
+    try { reqRespond?.(approved) } catch { /* 응답자 없음 */ }
+    setReqRespond(null)
+    if (approved && r) runRequestedIssue(r)
+    else setChecked(null)
   }
 
   const runIssue = (vc: any) => {
@@ -340,7 +353,12 @@ export const WalletShell: React.FC = () => {
 
   // 발급기관 → 데스크톱 수신: 승인 요청 리슨 + VC 변경 시 목록 갱신
   useEffect(() => {
-    const onApproval = (e: any) => { if (e?.detail?.kind === 'vc-issuance') setIssuanceReq(e.detail) }
+    const onApproval = (e: any) => {
+      const d = e?.detail
+      if (d?.kind === 'vc-issuance') setIssuanceReq(d)
+      // 확장 → 데스크톱으로 전달된 인증토큰 발급 요청. 이미 온체인 검사를 마친 상태로 온다.
+      else if (d?.kind === 'pass-issuance') { setChecked(d.payload); setReqRespond(() => d.respond) }
+    }
     const onUpdated = () => { vcHook.refresh() }
     window.addEventListener('wallet-rpc-approval', onApproval as EventListener)
     window.addEventListener('wallet-vc-updated', onUpdated as EventListener)
@@ -770,9 +788,9 @@ export const WalletShell: React.FC = () => {
       </Modal>
 
       {/* 요청 승인 — 사이트의 주장이 아니라 체인에서 읽은 값을 보여준다 */}
-      <Modal open={!!checked} title="인증토큰 발급 요청" onClose={() => setChecked(null)}
-        footer={<><Button variant="ghost" onClick={() => setChecked(null)}>거절</Button>
-                 <Button variant="primary" disabled={!!issuing} onClick={() => checked && runRequestedIssue(checked)}>{issuing ?? '승인 · 발급받기'}</Button></>}>
+      <Modal open={!!checked} title="인증토큰 발급 요청" onClose={() => settleRequest(false)}
+        footer={<><Button variant="ghost" onClick={() => settleRequest(false)}>거절</Button>
+                 <Button variant="primary" disabled={!!issuing} onClick={() => settleRequest(true)}>{issuing ?? '승인 · 발급받기'}</Button></>}>
         {checked && (() => { const r = checked.request; const o = checked.onChain; return (
           <div style={{ display: 'grid', gap: 12, fontSize: 13 }}>
             <div>

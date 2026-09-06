@@ -90,12 +90,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.type === 'SAVE_SBT') {
     handleSaveSBT(message, sender, sendResponse);
     return true;
+  } else if (message.type === 'REQUEST_PASS_ISSUANCE') {
+    handlePassIssuance(message, sendResponse);
+    return true;
   } else if (message.type === 'DESKTOP_RPC') {
     handleDesktopRpc(message, sendResponse);
     return true;
   }
   return false;
 });
+
+// 인증토큰 발급 요청 중계 — 확장은 요청을 나르기만 한다.
+// 요청 검증(컨트랙트에 직접 조회)과 승인 모달은 모두 데스크톱에서 이뤄지고, 확장은 결과만 받는다.
+//
+// 데스크톱은 승인 즉시 응답하고 발급은 뒤에서 이어간다. 그래도 사용자가 승인 버튼을 누르기까지
+// 수십 초가 걸릴 수 있는데, MV3 서비스워커는 유휴 상태로 두면 그 사이에 종료된다.
+// 응답을 기다리는 동안 핑을 보내 워커를 깨워 둔다.
+async function handlePassIssuance(message: any, sendResponse: (response: any) => void) {
+  const keepAlive = setInterval(() => {
+    nativeBridge.request('ping', {}, 3000).catch(() => {});
+  }, 20000);
+  try {
+    const res = await nativeBridge.request(
+      'requestPassIssuance',
+      { url: message.url, request: message.request, origin: message.origin },
+      180000,
+    );
+    sendResponse({ ok: true, ...res });
+  } catch (error: any) {
+    sendResponse({ ok: false, accepted: false, error: nativeBridge.friendlyError(error) });
+  } finally {
+    clearInterval(keepAlive);
+  }
+}
 
 // 씬 팝업이 데스크톱 지갑을 조회할 때 쓰는 릴레이(읽기 위주 메서드만 허용).
 const DESKTOP_RPC_ALLOW = new Set(['ping', 'getAddresses', 'getVCs']);

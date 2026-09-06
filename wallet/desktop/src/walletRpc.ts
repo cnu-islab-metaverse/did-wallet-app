@@ -2,7 +2,7 @@
 //        수행하고 결과를 되돌린다. 키·저장·승인은 모두 이 데스크톱 렌더러(신뢰 컨텍스트)에서.
 //        VC 저장은 활성 계정별 vcStore 로 통일(새 셸과 동일 저장소). 발급은 데스크톱 승인 모달을 거친다.
 // [결과] initWalletRpc() 등록 후 확장(호스트→파이프→main)이 보낸 method 를 처리.
-import { getActiveAccount, getAllAccounts, hdWalletService, addressToDid, didMatchesAddress, vcStore } from '../../core'
+import { getActiveAccount, getAllAccounts, hdWalletService, addressToDid, didMatchesAddress, vcStore, fetchPassRequest, scenariosForVc, SCENARIO_LABEL } from '../../core'
 import { storageAdapter } from '../../core/lib/storageAdapter'
 import { STORAGE_KEYS } from '../../core/config/storage'
 
@@ -81,6 +81,54 @@ async function dispatch(method: string, params: any): Promise<any> {
       const r = await vcStore.addVC(addr, vc)
       emitUpdated()
       return { saved: r.ok, duplicate: r.duplicate === true, count: (await vcStore.getVCs(addr)).length }
+    }
+
+    // 확장(브라우저)이 전달한 인증토큰 발급 요청.
+    // 요청은 사이트가 준 데이터일 뿐이므로 컨트랙트에 직접 물어 확인한 뒤,
+    // 데스크톱 승인 모달에 **체인이 말하는 것**을 띄운다(붙여넣기 경로와 같은 검사·같은 모달).
+    //
+    // 승인되면 곧바로 응답한다. 증명 생성과 트랜잭션 확정은 데스크톱에서 이어지고,
+    // 플랫폼은 체인을 직접 조회해 발급을 확인한다 — 지갑의 "성공했다"는 주장을 믿지 않는다.
+    // MV3 서비스워커는 그때까지 살아 있지 않으므로 확장을 기다리게 해서도 안 된다.
+    case 'requestPassIssuance': {
+      const active = activeAccount()
+      const addr: string | null = active?.address ?? null
+      if (!hdWalletService.isUnlocked() || !addr) return { accepted: false, error: 'locked' }
+
+      const input = params?.request ?? params?.url
+      if (!input) return { accepted: false, error: 'no-request' }
+
+      let checked
+      try {
+        checked = await fetchPassRequest(input)
+      } catch (e: any) {
+        return { accepted: false, error: String(e?.message || e) }
+      }
+
+      // 요청을 전달한 사이트가 요청에 적힌 출처와 다르면 알린다(제3자 중계 가능성).
+      const origin = params?.origin
+      if (origin && checked.request.origin?.url && !checked.request.origin.url.startsWith(String(origin))) {
+        checked.warnings.push(
+          `요청을 전달한 사이트(${origin})가 요청에 적힌 출처(${checked.request.origin.url})와 다릅니다.`,
+        )
+      }
+
+      // 이 요청을 증명할 수 있는 증명서가 없다면 승인을 물을 이유가 없다.
+      const held = await vcStore.getVCs(addr)
+      if (!held.some((v: any) => scenariosForVc(v).includes(checked.request.scenario))) {
+        return {
+          accepted: false,
+          error: `이 요청에 맞는 증명서가 지갑에 없습니다 (${SCENARIO_LABEL[checked.request.scenario]}).`,
+        }
+      }
+
+      const approved = await requestApproval('pass-issuance', checked)
+      return {
+        accepted: approved,
+        address: addr,
+        contract: checked.request.contract,
+        passType: checked.request.passType,
+      }
     }
 
     default:

@@ -118,4 +118,5 @@ button.sm { padding: 6px 12px; font-size: 12.5px; }
 .steps li.done { color: var(--fg); }
 .steps li.done::before { background: var(--ok); border-color: var(--ok); color: #04231a; content: "✓"; }
 .note { font-size: 12px; color: var(--muted); line-height: 1.65; }
+.ok-text { color: var(--ok); }
 footer { margin-top: 56px; padding: 22px 0 40px; border-top: 1px solid var(--line); }
