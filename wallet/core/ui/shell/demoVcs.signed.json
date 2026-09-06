@@ -1,0 +1,291 @@
+[
+  {
+    "@context": [
+      "https://www.w3.org/ns/credentials/v2",
+      "https://www.w3.org/ns/credentials/examples/v2"
+    ],
+    "id": "https://www.mois.go.kr/credentials/1001",
+    "type": [
+      "VerifiableCredential",
+      "ResidentRegistrationCredential"
+    ],
+    "issuer": {
+      "id": "https://www.mois.go.kr",
+      "name": "행정안전부",
+      "publicKey": {
+        "Ax": "13277427435165878497778222415993513565335242147425444199013288855685581939618",
+        "Ay": "13622229784656158136036771217484571176836296686641868549125388198837476602820"
+      }
+    },
+    "issuanceDate": "2025-10-01T00:00:00.000Z",
+    "validFrom": "2025-10-01T00:00:00.000Z",
+    "validUntil": null,
+    "credentialSubject": {
+      "id": "did:ethr:0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "walletAddress": "0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "name": "홍길동",
+      "birthDate": "1998-03-10",
+      "sex": "male",
+      "nationalId": "RRN-98031030245",
+      "residentialAddress": "대전광역시 유성구 대학로 99",
+      "idCard": {
+        "rrn": "980310-3******",
+        "issuedOn": "2017-03-15",
+        "issuer": "대전광역시 유성구청장"
+      }
+    },
+    "proofVerificationMethod": "https://www.mois.go.kr/keys/1",
+    "proof": {
+      "type": "BabyJubJubSMTSignature2024",
+      "created": "2025-10-01T00:00:00.000Z",
+      "proofPurpose": "assertionMethod",
+      "verificationMethod": "https://www.mois.go.kr/keys/1",
+      "merkleRoot": "2229927239175412112178257051348520275321841153868038126346537430133964650780",
+      "signature": {
+        "R8x": "19928205957615226726724150093811362134133050311044099087157505319478117796436",
+        "R8y": "4952161375139853752739118864470721326515664711994354246257626064355879181576",
+        "S": "1596811399358464933449755139865203251368287276203409602908006553000622448803"
+      }
+    }
+  },
+  {
+    "@context": [
+      "https://www.w3.org/ns/credentials/v2",
+      "https://www.w3.org/ns/credentials/examples/v2"
+    ],
+    "id": "https://www.police.go.kr/credentials/2002",
+    "type": [
+      "VerifiableCredential",
+      "DrivingLicenseCredential"
+    ],
+    "issuer": {
+      "id": "https://www.police.go.kr",
+      "name": "경찰청",
+      "publicKey": {
+        "Ax": "13277427435165878497778222415993513565335242147425444199013288855685581939618",
+        "Ay": "13622229784656158136036771217484571176836296686641868549125388198837476602820"
+      }
+    },
+    "issuanceDate": "2025-10-01T00:00:00.000Z",
+    "validFrom": "2025-10-01T00:00:00.000Z",
+    "validUntil": "2031-12-31T23:59:59.000Z",
+    "credentialSubject": {
+      "id": "did:ethr:0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "walletAddress": "0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "name": "홍길동",
+      "birthDate": "1998-03-10",
+      "residentialAddress": "대전광역시 유성구 대학로 99",
+      "drivingLicense": {
+        "licenseNumber": "30-21-123456-01",
+        "licenseType": "2종 보통",
+        "issuedOn": "2021-05-20",
+        "renewalUntil": "2031-12-31",
+        "issuer": "대전지방경찰청장"
+      }
+    },
+    "proofVerificationMethod": "https://www.police.go.kr/keys/1",
+    "proof": {
+      "type": "BabyJubJubSMTSignature2024",
+      "created": "2025-10-01T00:00:00.000Z",
+      "proofPurpose": "assertionMethod",
+      "verificationMethod": "https://www.police.go.kr/keys/1",
+      "merkleRoot": "18099102208835899877778902666890893065110606756623629027022195657018967088525",
+      "signature": {
+        "R8x": "20878938039638819791297791322036160950995711545121576541861277000895030324258",
+        "R8y": "12922356274598371409756166398162148213263155464096508132948308020590506421074",
+        "S": "1809501556647471313250709943200823294341715083645674252463101206646414700996"
+      }
+    }
+  },
+  {
+    "@context": [
+      "https://www.w3.org/ns/credentials/v2",
+      "https://www.w3.org/ns/credentials/examples/v2"
+    ],
+    "id": "https://cnu.ac.kr/credentials/3003",
+    "type": [
+      "VerifiableCredential",
+      "UniversityAcademicCredential"
+    ],
+    "issuer": {
+      "id": "https://cnu.ac.kr/registrar",
+      "name": "충남대학교",
+      "publicKey": {
+        "Ax": "13277427435165878497778222415993513565335242147425444199013288855685581939618",
+        "Ay": "13622229784656158136036771217484571176836296686641868549125388198837476602820"
+      }
+    },
+    "issuanceDate": "2024-02-16T00:00:00.000Z",
+    "validFrom": "2024-02-16T00:00:00.000Z",
+    "validUntil": "2029-02-28T23:59:59.000Z",
+    "credentialSubject": {
+      "id": "did:ethr:0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "walletAddress": "0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "name": "홍길동",
+      "birthDate": "1998-03-10",
+      "university": "충남대학교",
+      "studentId": "201612345",
+      "college": "공과대학",
+      "department": "컴퓨터융합학부",
+      "degree": "학사",
+      "graduationDate": "2024-02-16",
+      "status": "졸업",
+      "certificateType": "졸업증명서"
+    },
+    "proofVerificationMethod": "https://cnu.ac.kr/registrar/keys/1",
+    "proof": {
+      "type": "BabyJubJubSMTSignature2024",
+      "created": "2024-02-16T00:00:00.000Z",
+      "proofPurpose": "assertionMethod",
+      "verificationMethod": "https://cnu.ac.kr/registrar/keys/1",
+      "merkleRoot": "5436231480016098741435003839899220051264388492682900870994547712546729097601",
+      "signature": {
+        "R8x": "4004867814709809319872007651475694831856693207482733226300242505797057419364",
+        "R8y": "1869101858398461627671871037903974972419718227071470931620028700911703884771",
+        "S": "3956027377367121405335328917056817773808012759443732322838558491526895500"
+      }
+    }
+  },
+  {
+    "@context": [
+      "https://www.w3.org/ns/credentials/v2",
+      "https://www.w3.org/ns/credentials/examples/v2"
+    ],
+    "id": "https://cnu.ac.kr/credentials/3004",
+    "type": [
+      "VerifiableCredential",
+      "UniversityAcademicCredential"
+    ],
+    "issuer": {
+      "id": "https://cnu.ac.kr/registrar",
+      "name": "충남대학교",
+      "publicKey": {
+        "Ax": "13277427435165878497778222415993513565335242147425444199013288855685581939618",
+        "Ay": "13622229784656158136036771217484571176836296686641868549125388198837476602820"
+      }
+    },
+    "issuanceDate": "2020-03-02T00:00:00.000Z",
+    "validFrom": "2020-03-02T00:00:00.000Z",
+    "validUntil": "2021-03-01T23:59:59.000Z",
+    "credentialSubject": {
+      "id": "did:ethr:0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "walletAddress": "0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "name": "홍길동",
+      "birthDate": "1998-03-10",
+      "university": "충남대학교",
+      "studentId": "201612345",
+      "college": "공과대학",
+      "department": "컴퓨터융합학부",
+      "status": "재학",
+      "certificateType": "재학증명서"
+    },
+    "proofVerificationMethod": "https://cnu.ac.kr/registrar/keys/1",
+    "proof": {
+      "type": "BabyJubJubSMTSignature2024",
+      "created": "2020-03-02T00:00:00.000Z",
+      "proofPurpose": "assertionMethod",
+      "verificationMethod": "https://cnu.ac.kr/registrar/keys/1",
+      "merkleRoot": "9144761881467067087224455958023230323205245419724559047760476606317064571923",
+      "signature": {
+        "R8x": "11527496402018523010218382824134899535558488331549498084745764179925051395725",
+        "R8y": "16028853696122947114110354387607892446040198237101377068687924543665746084598",
+        "S": "1611184022654747525886278580306134001108036021408158186774327137660297954407"
+      }
+    }
+  },
+  {
+    "@context": [
+      "https://www.w3.org/ns/credentials/v2",
+      "https://www.w3.org/ns/credentials/examples/v2"
+    ],
+    "id": "https://www.q-net.or.kr/credentials/4005",
+    "type": [
+      "VerifiableCredential",
+      "NationalTechnicalQualificationCredential"
+    ],
+    "issuer": {
+      "id": "https://www.hrdkorea.or.kr",
+      "name": "한국산업인력공단",
+      "publicKey": {
+        "Ax": "13277427435165878497778222415993513565335242147425444199013288855685581939618",
+        "Ay": "13622229784656158136036771217484571176836296686641868549125388198837476602820"
+      }
+    },
+    "issuanceDate": "2023-08-25T00:00:00.000Z",
+    "validFrom": "2023-08-25T00:00:00.000Z",
+    "validUntil": null,
+    "credentialSubject": {
+      "id": "did:ethr:0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "walletAddress": "0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "name": "홍길동",
+      "birthDate": "1998-03-10",
+      "qualification": {
+        "qualificationName": "정보처리기사",
+        "grade": "기사",
+        "certNumber": "23202030123A",
+        "acquiredDate": "2023-08-25",
+        "issuer": "한국산업인력공단"
+      }
+    },
+    "proofVerificationMethod": "https://www.hrdkorea.or.kr/keys/1",
+    "proof": {
+      "type": "BabyJubJubSMTSignature2024",
+      "created": "2023-08-25T00:00:00.000Z",
+      "proofPurpose": "assertionMethod",
+      "verificationMethod": "https://www.hrdkorea.or.kr/keys/1",
+      "merkleRoot": "15313649582443867348162205870127282413396430981511128649559745564899560303440",
+      "signature": {
+        "R8x": "1424162796396579313717450116511571015633615719767105901114733192041035138147",
+        "R8y": "13203778816650874341627919069134973114872163145396284978075436868411283647433",
+        "S": "2616164402973275186578600984281074549711995745444754074777383679161235626081"
+      }
+    }
+  },
+  {
+    "@context": [
+      "https://www.w3.org/ns/credentials/v2",
+      "https://www.w3.org/ns/credentials/examples/v2"
+    ],
+    "id": "https://www.nhis.or.kr/credentials/5006",
+    "type": [
+      "VerifiableCredential",
+      "HealthInsuranceCredential"
+    ],
+    "issuer": {
+      "id": "https://www.nhis.or.kr",
+      "name": "국민건강보험공단",
+      "publicKey": {
+        "Ax": "13277427435165878497778222415993513565335242147425444199013288855685581939618",
+        "Ay": "13622229784656158136036771217484571176836296686641868549125388198837476602820"
+      }
+    },
+    "issuanceDate": "2026-01-05T00:00:00.000Z",
+    "validFrom": "2026-01-05T00:00:00.000Z",
+    "validUntil": "2027-01-04T23:59:59.000Z",
+    "credentialSubject": {
+      "id": "did:ethr:0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "walletAddress": "0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+      "name": "홍길동",
+      "birthDate": "1998-03-10",
+      "healthInsurance": {
+        "insuranceType": "직장가입자",
+        "acquisitionDate": "2024-03-01",
+        "coverageArea": "본인",
+        "issuer": "국민건강보험공단"
+      }
+    },
+    "proofVerificationMethod": "https://www.nhis.or.kr/keys/1",
+    "proof": {
+      "type": "BabyJubJubSMTSignature2024",
+      "created": "2026-01-05T00:00:00.000Z",
+      "proofPurpose": "assertionMethod",
+      "verificationMethod": "https://www.nhis.or.kr/keys/1",
+      "merkleRoot": "9772734734874063737848063223712171999671230300579162542325024281237350428486",
+      "signature": {
+        "R8x": "2189732949272760048908364440237256472152371230582933243068863431466176806824",
+        "R8y": "10327608366837664994310164498516414594303001748043872533835060878172301190862",
+        "S": "1085189302159206314280980842062152290564901396610243680424000911687005599311"
+      }
+    }
+  }
+]

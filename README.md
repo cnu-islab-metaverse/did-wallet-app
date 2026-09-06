@@ -31,16 +31,19 @@
 
 | 경로 | 역할 | 스택 |
 |---|---|---|
-| **`src/`** | 지갑 공통 코어(공유 컴포넌트·로직). 데스크톱/확장이 함께 사용하는 단일 소스 | React 19 |
-| **`desktop/`** | 데스크톱 지갑 앱 (`src/` 코어 사용) | Electron + Vite |
-| **`ext/`** | 크롬 확장 지갑 (`src/` 코어를 `shared-src` 심링크로 공유) | Chrome Extension |
+| **`wallet/core/`** | 지갑 공통 코어(로직·상태·UI 프리미티브). 데스크톱이 사용하는 단일 소스 | React 18 |
+| **`wallet/desktop/`** | **지갑 본체** — 실제 설치되는 앱. 키·저장·승인이 여기서만 일어난다 (`core` 사용) | Electron + Vite |
+| **`wallet/extension/`** | **브라우저 연결지점** — 지갑의 다른 형태가 아니라, 설치된 본체에 웹을 물려주는 중계자. 요청만 넘기고 키는 갖지 않는다 | Chrome Extension |
 | **`issuer-web/`** | **오프체인 발급기관** — 주민/거주 신원 확인 후 Identity VC 발급 | Express + static UI |
 | **`cnu-issuer-web/`** | **오프체인 발급기관(충남대)** — 학적 DB 기반 졸업/재학 VC 발급 | Express |
-| **`verifier-web/`** | **온체인 검증자 프론트** — VP 수신(`/submit-vp`) → 검증 → `mintSBT` 호출 | Express + Vite |
+| **`verifier-web/`** | **온체인 검증자 프론트** — VP 수신(`/submit-vp`) → 검증 → `mintPass` 호출 | Express + Vite |
 | **`contract/`** | 온체인 컨트랙트 — 시나리오별 [`*PassSBT`(ERC-721+ERC-5192 소울바운드) → `*Verifier`(Groth16)] 2쌍 | Foundry (Solidity) |
 | **`circuits/`** | **ZK 핵심 뼈대** — 조건 증명 회로(지방거점국립대 재학/졸업, 지역청년패스=대전 거주+만19~34세) 로컬 빌드/검증, `Verifier.sol` 산출 | circom + snarkjs |
 
-> 심화 문서: 지갑 코어는 `src/`, ZK 회로 파이프라인은 [`circuits/README.md`](circuits/README.md), 컨트랙트는 `contract/`.
+> 심화 문서: 지갑 코어는 `wallet/core/`, ZK 회로 파이프라인은 [`circuits/README.md`](circuits/README.md), 컨트랙트는 `contract/`.
+>
+> `wallet/` 은 **yarn 워크스페이스**(멤버: `core`·`desktop`)로, 자기 `node_modules` 와 lockfile 을 소유한다.
+> `wallet/extension` 은 워크스페이스 **밖**의 독립 pnpm 프로젝트다(`workspace:*` 의존성과 turbo 그래프 때문에 pnpm 이 구조적으로 필요).
 
 ## 엔드투엔드 시나리오
 
@@ -56,13 +59,14 @@
 |---|---|---|
 | ZK 회로 (`circuits/`) | **완료** | 단일 `vc.json` → 서명 → 증명·검증 로컬 완결. 두 시나리오(youth_pass·regional) 통과. 공개신호 `[currentDate, walletAddress]`. `Verifier.sol` 산출 |
 | 온체인 컨트랙트 (`contract/`) | **재구성·테스트 완료** | ERC-5192 소울바운드 [발급 SBT→검증 Verifier]×2. 실제 증명으로 `forge test` 8건 통과(A2·시점 검사 포함). **재배포 대기**(주소 갱신 필요) |
-| 발급기관 앱 (`issuer-web`/`cnu-issuer-web`) | **동작(발급 UI/DB)** | 아직 `circuits`의 발급기관 서명 로직과 **미통합** |
+| 발급기관 앱 (`issuer-web`/`cnu-issuer-web`) | **회로 연동 완료** | 양쪽 `services/vcsign.ts` 가 `circuits/witness.mjs` 와 동일한 SMT 구성 + EdDSA 서명을 수행하고 `issue.ts` 발급 흐름에 배선됨 |
 | `verifier-web` `/submit-vp` | **스텁** | 현재 VC의 거주지 **문자열 매칭**만 수행 — 실제 `groth16.verify`/온체인 `verifyProof` 호출은 미구현 |
 | 지갑 증명 모듈 (`ext`/`desktop`) | **미구현** | 회로 wasm/zkey 번들 + `fullProve` + VC 저장 필요 |
 
 ## 개발 / 실행
 
-전제: Node.js ≥ 18. 패키지 매니저는 앱별로 다름 — **`desktop`=yarn, `ext`=pnpm**, 그 외 각 폴더의 lockfile 기준.
+전제: Node.js ≥ 18. 패키지 매니저 — **`wallet/`(core+desktop)=yarn 워크스페이스**, `wallet/extension`=pnpm, `contract`=npm, 그 외 서비스는 yarn.
+지갑 최초 설치는 `wallet/` 에서 한 번: `npm run install:wallet` (또는 `cd wallet && yarn install`).
 
 ```bash
 # 지갑 (루트 aggregate)

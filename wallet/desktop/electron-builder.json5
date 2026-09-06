@@ -1,0 +1,55 @@
+// @see - https://www.electron.build/configuration/configuration
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "YourAppID",
+  "asar": true,
+  // 워크스페이스 호이스팅 환경에서 electron-builder 가 desktop 안에 별도 설치를 돌려
+  // 중복 React 를 되살리는 경로를 차단한다. 네이티브 모듈이 없어 rebuild 가 불필요하다.
+  "npmRebuild": false,
+  "productName": "YourAppName",
+  "directories": {
+    "output": "release/${version}"
+  },
+  "files": [
+    "dist",
+    "dist-electron"
+  ],
+  // 회로 산출물은 asar 에 넣지 않고 resources/ 에 그대로 둔다 — zkey 가 회로당 36MB 라
+  // 압축·번들 대상이 아니고, snarkjs 가 파일 경로로 읽어야 하기 때문이다.
+  "extraResources": [
+    {
+      "from": "../../circuits/build",
+      "to": "circuits/build",
+      "filter": ["**/*_final.zkey", "**/*.wasm", "**/verification_key.json"]
+    }
+  ],
+  "mac": {
+    "target": [
+      "dmg"
+    ],
+    "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "artifactName": "${productName}-Windows-${version}-Setup.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "deleteAppDataOnUninstall": false
+  },
+  "linux": {
+    "target": [
+      "AppImage"
+    ],
+    "artifactName": "${productName}-Linux-${version}.${ext}"
+  }
+}
