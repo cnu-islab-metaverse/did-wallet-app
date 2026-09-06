@@ -9,7 +9,7 @@
     "UniversityAcademicCredential"
   ],
   "issuer": {
-    "id": "https://cnu.ac.kr/registrar",
+    "id": "did:web:cnu.ac.kr:registrar",
     "name": "충남대학교",
     "publicKey": {
       "Ax": "5840406071275533170681344350053255393320600905844699720535669572059611962228",
@@ -35,7 +35,7 @@
     "type": "BabyJubJubSMTSignature2024",
     "created": "2024-02-16T00:00:00.000Z",
     "proofPurpose": "assertionMethod",
-    "verificationMethod": "https://cnu.ac.kr/registrar/keys/1",
+    "verificationMethod": "did:web:cnu.ac.kr:registrar#keys-1",
     "merkleRoot": "5436231480016098741435003839899220051264388492682900870994547712546729097601",
     "signature": {
       "R8x": "3625921688781305264791354694313779748364071469358383223942491509392009416954",

@@ -56,30 +56,30 @@ function finalize(base: any, verificationMethod: string) {
 }
 
 function issueDriver() {
-  const issuer = { id: 'https://police.example.kr/dl', name: '경찰청', publicKey: { Ax: '0x2a1f...Ax', Ay: '0x3b4e...Ay' } }
+  const issuer = { id: 'did:web:police.example.kr:dl', name: '경찰청', publicKey: { Ax: '0x2a1f...Ax', Ay: '0x3b4e...Ay' } }
   const base = buildBase(issuer, ['VerifiableCredential', 'DriverLicenseCredential'], {
     residentialAddress: subject.address,
     driverLicense: { number: '11-90-123456-00', class: '2종 보통', issuedOn: '2012-06-15', expiryOn: '2032-06-15', issuer: '대전광역시경찰청장' }
   })
-  const verificationMethod = 'https://police.example.kr/dl/keys/1'
+  const verificationMethod = 'did:web:police.example.kr:dl#keys-1'
   return finalize(base, verificationMethod)
 }
 
 function issueEngineer() {
-  const issuer = { id: 'https://hrdkorea.example.kr/hrd', name: '한국산업인력공단', publicKey: { Ax: '0x2a1f...Ax', Ay: '0x3b4e...Ay' } }
+  const issuer = { id: 'did:web:hrdkorea.example.kr:hrd', name: '한국산업인력공단', publicKey: { Ax: '0x2a1f...Ax', Ay: '0x3b4e...Ay' } }
   const base = buildBase(issuer, ['VerifiableCredential', 'ProfessionalEngineerCredential'], {
     professionalLicense: { name: '정보처리기사', certificateId: 'C-2010-123456', issuedOn: '2015-11-21', issuer: '한국산업인력공단' }
   })
-  const verificationMethod = 'https://hrdkorea.example.kr/keys/1'
+  const verificationMethod = 'did:web:hrdkorea.example.kr#keys-1'
   return finalize(base, verificationMethod)
 }
 
 function issueDiploma() {
-  const issuer = { id: 'https://cnu.ac.kr/registrar', name: '충남대학교', publicKey: { Ax: '0x2a1f...Ax', Ay: '0x3b4e...Ay' } }
+  const issuer = { id: 'did:web:cnu.ac.kr:registrar', name: '충남대학교', publicKey: { Ax: '0x2a1f...Ax', Ay: '0x3b4e...Ay' } }
   const base = buildBase(issuer, ['VerifiableCredential', 'UniversityDiplomaCredential'], {
     studentId: '201612345', university: '충남대학교', major: '컴퓨터공학과', degree: '학사', graduationDate: '2020-02-15'
   })
-  const verificationMethod = 'https://cnu.ac.kr/registrar/keys/1'
+  const verificationMethod = 'did:web:cnu.ac.kr:registrar#keys-1'
   return finalize(base, verificationMethod)
 }
 

@@ -24,9 +24,9 @@ interface Student {
 
 // 발급기관 정보. publicKey 는 회로 호환 서명키(vcsign)에서 채운다.
 const issuerInfo = {
-  id: 'https://cnu.ac.kr/registrar',
+  id: 'did:web:cnu.ac.kr:registrar',
   name: '충남대학교',
-  verificationMethod: 'https://cnu.ac.kr/registrar/keys/1',
+  verificationMethod: 'did:web:cnu.ac.kr:registrar#keys-1',
 }
 
 export const issueRouter = Router()

@@ -9,7 +9,7 @@
     "ResidentRegistrationCredential"
   ],
   "issuer": {
-    "id": "https://www.mois.go.kr",
+    "id": "did:web:www.mois.go.kr",
     "name": "행정안전부",
     "publicKey": {
       "Ax": "13277427435165878497778222415993513565335242147425444199013288855685581939618",
@@ -31,7 +31,7 @@
     "type": "BabyJubJubSMTSignature2024",
     "created": "2025-10-01T00:00:00.000Z",
     "proofPurpose": "assertionMethod",
-    "verificationMethod": "https://www.mois.go.kr/keys/1",
+    "verificationMethod": "did:web:www.mois.go.kr#keys-1",
     "merkleRoot": "2229927239175412112178257051348520275321841153868038126346537430133964650780",
     "signature": {
       "R8x": "19928205957615226726724150093811362134133050311044099087157505319478117796436",

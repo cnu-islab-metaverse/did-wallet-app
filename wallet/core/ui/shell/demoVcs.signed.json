@@ -10,7 +10,7 @@
       "ResidentRegistrationCredential"
     ],
     "issuer": {
-      "id": "https://www.mois.go.kr",
+      "id": "did:web:www.mois.go.kr",
       "name": "행정안전부",
       "publicKey": {
         "Ax": "13277427435165878497778222415993513565335242147425444199013288855685581939618",
@@ -34,12 +34,12 @@
         "issuer": "대전광역시 유성구청장"
       }
     },
-    "proofVerificationMethod": "https://www.mois.go.kr/keys/1",
+    "proofVerificationMethod": "did:web:www.mois.go.kr#keys-1",
     "proof": {
       "type": "BabyJubJubSMTSignature2024",
       "created": "2025-10-01T00:00:00.000Z",
       "proofPurpose": "assertionMethod",
-      "verificationMethod": "https://www.mois.go.kr/keys/1",
+      "verificationMethod": "did:web:www.mois.go.kr#keys-1",
       "merkleRoot": "2229927239175412112178257051348520275321841153868038126346537430133964650780",
       "signature": {
         "R8x": "19928205957615226726724150093811362134133050311044099087157505319478117796436",
@@ -59,7 +59,7 @@
       "DrivingLicenseCredential"
     ],
     "issuer": {
-      "id": "https://www.police.go.kr",
+      "id": "did:web:www.police.go.kr",
       "name": "경찰청",
       "publicKey": {
         "Ax": "8754749690444537776755615696920441899251665568976573093700431189772999004032",
@@ -108,7 +108,7 @@
       "UniversityAcademicCredential"
     ],
     "issuer": {
-      "id": "https://cnu.ac.kr/registrar",
+      "id": "did:web:cnu.ac.kr:registrar",
       "name": "충남대학교",
       "publicKey": {
         "Ax": "5840406071275533170681344350053255393320600905844699720535669572059611962228",
@@ -132,12 +132,12 @@
       "status": "졸업",
       "certificateType": "졸업증명서"
     },
-    "proofVerificationMethod": "https://cnu.ac.kr/registrar/keys/1",
+    "proofVerificationMethod": "did:web:cnu.ac.kr:registrar#keys-1",
     "proof": {
       "type": "BabyJubJubSMTSignature2024",
       "created": "2024-02-16T00:00:00.000Z",
       "proofPurpose": "assertionMethod",
-      "verificationMethod": "https://cnu.ac.kr/registrar/keys/1",
+      "verificationMethod": "did:web:cnu.ac.kr:registrar#keys-1",
       "merkleRoot": "5436231480016098741435003839899220051264388492682900870994547712546729097601",
       "signature": {
         "R8x": "3625921688781305264791354694313779748364071469358383223942491509392009416954",
@@ -157,7 +157,7 @@
       "UniversityAcademicCredential"
     ],
     "issuer": {
-      "id": "https://cnu.ac.kr/registrar",
+      "id": "did:web:cnu.ac.kr:registrar",
       "name": "충남대학교",
       "publicKey": {
         "Ax": "5840406071275533170681344350053255393320600905844699720535669572059611962228",
@@ -179,12 +179,12 @@
       "status": "재학",
       "certificateType": "재학증명서"
     },
-    "proofVerificationMethod": "https://cnu.ac.kr/registrar/keys/1",
+    "proofVerificationMethod": "did:web:cnu.ac.kr:registrar#keys-1",
     "proof": {
       "type": "BabyJubJubSMTSignature2024",
       "created": "2020-03-02T00:00:00.000Z",
       "proofPurpose": "assertionMethod",
-      "verificationMethod": "https://cnu.ac.kr/registrar/keys/1",
+      "verificationMethod": "did:web:cnu.ac.kr:registrar#keys-1",
       "merkleRoot": "9144761881467067087224455958023230323205245419724559047760476606317064571923",
       "signature": {
         "R8x": "19752246571124970378860116915031333561713733033038632273308247869373030324505",
@@ -204,7 +204,7 @@
       "NationalTechnicalQualificationCredential"
     ],
     "issuer": {
-      "id": "https://www.hrdkorea.or.kr",
+      "id": "did:web:www.hrdkorea.or.kr",
       "name": "한국산업인력공단",
       "publicKey": {
         "Ax": "6172185726717147434564052673955222205363620660657680335775999416542101771237",
@@ -252,7 +252,7 @@
       "HealthInsuranceCredential"
     ],
     "issuer": {
-      "id": "https://www.nhis.or.kr",
+      "id": "did:web:www.nhis.or.kr",
       "name": "국민건강보험공단",
       "publicKey": {
         "Ax": "20092493554442509785017563952961373331412680354531955535644798004761047422781",

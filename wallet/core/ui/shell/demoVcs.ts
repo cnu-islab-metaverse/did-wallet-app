@@ -27,18 +27,18 @@ export const DEMO_VCS_UNSIGNED: any[] = [
   {
     '@context': CTX, id: 'https://www.mois.go.kr/credentials/1001',
     type: ['VerifiableCredential', 'ResidentRegistrationCredential'],
-    issuer: { id: 'https://www.mois.go.kr', name: '행정안전부', publicKey: PUBKEY },
+    issuer: { id: 'did:web:www.mois.go.kr', name: '행정안전부', publicKey: PUBKEY },
     issuanceDate: '2025-10-01T00:00:00.000Z', validFrom: '2025-10-01T00:00:00.000Z', validUntil: null,
     credentialSubject: base('mois', '행정안전부', {
       sex: 'male', nationalId: 'RRN-98031030245', residentialAddress: ADDRESS,
       idCard: { rrn: '980310-3******', issuedOn: '2017-03-15', issuer: '대전광역시 유성구청장' },
     }),
-    proofVerificationMethod: 'https://www.mois.go.kr/keys/1',
+    proofVerificationMethod: 'did:web:www.mois.go.kr#keys-1',
   },
   {
     '@context': CTX, id: 'https://www.police.go.kr/credentials/2002',
     type: ['VerifiableCredential', 'DrivingLicenseCredential'],
-    issuer: { id: 'https://www.police.go.kr', name: '경찰청', publicKey: PUBKEY },
+    issuer: { id: 'did:web:www.police.go.kr', name: '경찰청', publicKey: PUBKEY },
     issuanceDate: '2025-10-01T00:00:00.000Z', validFrom: '2025-10-01T00:00:00.000Z', validUntil: '2031-12-31T23:59:59.000Z',
     credentialSubject: base('police', '경찰청', {
       residentialAddress: ADDRESS,
@@ -49,29 +49,29 @@ export const DEMO_VCS_UNSIGNED: any[] = [
   {
     '@context': CTX, id: 'https://cnu.ac.kr/credentials/3003',
     type: ['VerifiableCredential', 'UniversityAcademicCredential'],
-    issuer: { id: 'https://cnu.ac.kr/registrar', name: '충남대학교', publicKey: PUBKEY },
+    issuer: { id: 'did:web:cnu.ac.kr:registrar', name: '충남대학교', publicKey: PUBKEY },
     issuanceDate: '2024-02-16T00:00:00.000Z', validFrom: '2024-02-16T00:00:00.000Z', validUntil: '2029-02-28T23:59:59.000Z',
     credentialSubject: base('cnu', '충남대학교', {
       university: '충남대학교', studentId: '201612345', college: '공과대학', department: '컴퓨터융합학부',
       degree: '학사', graduationDate: '2024-02-16', status: '졸업', certificateType: '졸업증명서',
     }),
-    proofVerificationMethod: 'https://cnu.ac.kr/registrar/keys/1',
+    proofVerificationMethod: 'did:web:cnu.ac.kr:registrar#keys-1',
   },
   {
     '@context': CTX, id: 'https://cnu.ac.kr/credentials/3004',
     type: ['VerifiableCredential', 'UniversityAcademicCredential'],
-    issuer: { id: 'https://cnu.ac.kr/registrar', name: '충남대학교', publicKey: PUBKEY },
+    issuer: { id: 'did:web:cnu.ac.kr:registrar', name: '충남대학교', publicKey: PUBKEY },
     issuanceDate: '2020-03-02T00:00:00.000Z', validFrom: '2020-03-02T00:00:00.000Z', validUntil: '2021-03-01T23:59:59.000Z',
     credentialSubject: base('cnu', '충남대학교', {
       university: '충남대학교', studentId: '201612345', college: '공과대학', department: '컴퓨터융합학부',
       status: '재학', certificateType: '재학증명서',
     }),
-    proofVerificationMethod: 'https://cnu.ac.kr/registrar/keys/1',
+    proofVerificationMethod: 'did:web:cnu.ac.kr:registrar#keys-1',
   },
   {
     '@context': CTX, id: 'https://www.q-net.or.kr/credentials/4005',
     type: ['VerifiableCredential', 'NationalTechnicalQualificationCredential'],
-    issuer: { id: 'https://www.hrdkorea.or.kr', name: '한국산업인력공단', publicKey: PUBKEY },
+    issuer: { id: 'did:web:www.hrdkorea.or.kr', name: '한국산업인력공단', publicKey: PUBKEY },
     issuanceDate: '2023-08-25T00:00:00.000Z', validFrom: '2023-08-25T00:00:00.000Z', validUntil: null,
     credentialSubject: base('hrdk', '한국산업인력공단', {
       qualification: { qualificationName: '정보처리기사', grade: '기사', certNumber: '23202030123A', acquiredDate: '2023-08-25', issuer: '한국산업인력공단' },
@@ -81,7 +81,7 @@ export const DEMO_VCS_UNSIGNED: any[] = [
   {
     '@context': CTX, id: 'https://www.nhis.or.kr/credentials/5006',
     type: ['VerifiableCredential', 'HealthInsuranceCredential'],
-    issuer: { id: 'https://www.nhis.or.kr', name: '국민건강보험공단', publicKey: PUBKEY },
+    issuer: { id: 'did:web:www.nhis.or.kr', name: '국민건강보험공단', publicKey: PUBKEY },
     issuanceDate: '2026-01-05T00:00:00.000Z', validFrom: '2026-01-05T00:00:00.000Z', validUntil: '2027-01-04T23:59:59.000Z',
     credentialSubject: base('nhis', '국민건강보험공단', {
       healthInsurance: { insuranceType: '직장가입자', acquisitionDate: '2024-03-01', coverageArea: '본인', issuer: '국민건강보험공단' },
