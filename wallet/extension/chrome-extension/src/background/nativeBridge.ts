@@ -63,13 +63,27 @@ export async function isDesktopAvailable(): Promise<boolean> {
   }
 }
 
-// 오류 → 사용자 안내 문구. 프로그램 미설치/미실행/미연결을 하나로 안내.
-export function friendlyError(e: any): string {
+// 두 실패는 원인도 해법도 다르다. 뭉뚱그리면 프로그램을 켜 둔 채로 "설치하라"는 말을 듣게 된다.
+//   not-registered — 브라우저가 호스트를 모른다. 한 번 등록하면 끝난다.
+//   not-running    — 호스트는 떴는데 지갑이 파이프를 열고 있지 않다. 실행만 하면 된다.
+export type BridgeFault = 'not-registered' | 'not-running' | 'other'
+
+export function classify(e: any): BridgeFault {
   const m = String(e?.message || e)
-  if (m.includes('program-not-running') || m.includes('native-host-unavailable') ||
-      m.includes('disconnected') || m.includes('Specified native messaging host not found') ||
-      m.includes('not found')) {
-    return '데스크톱 지갑 프로그램을 설치하고 실행해 주세요. (확장은 단독으로 동작하지 않습니다)'
+  if (m.includes('program-not-running')) return 'not-running'
+  if (m.includes('native-host-unavailable') || m.includes('not found') || m.includes('forbidden')) {
+    return 'not-registered'
   }
-  return m
+  return 'other'
+}
+
+export function friendlyError(e: any): string {
+  switch (classify(e)) {
+    case 'not-running':
+      return '데스크톱 지갑 프로그램을 실행해 주세요.'
+    case 'not-registered':
+      return '브라우저가 지갑 프로그램을 아직 모릅니다. wallet/desktop 에서 `yarn register:host` 를 실행한 뒤 브라우저를 재시작하세요.'
+    default:
+      return String(e?.message || e)
+  }
 }

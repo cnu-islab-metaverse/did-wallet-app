@@ -115,7 +115,7 @@ async function handlePassIssuance(message: any, sendResponse: (response: any) =>
     );
     sendResponse({ ok: true, ...res });
   } catch (error: any) {
-    sendResponse({ ok: false, accepted: false, error: nativeBridge.friendlyError(error) });
+    sendResponse({ ok: false, accepted: false, fault: nativeBridge.classify(error), error: nativeBridge.friendlyError(error) });
   } finally {
     clearInterval(keepAlive);
   }
@@ -129,7 +129,7 @@ async function handleDesktopRpc(message: any, sendResponse: (response: any) => v
     const result = await nativeBridge.request(message.method, message.params, message.method === 'ping' ? 3000 : 30000);
     sendResponse({ ok: true, result });
   } catch (error: any) {
-    sendResponse({ ok: false, error: nativeBridge.friendlyError(error) });
+    sendResponse({ ok: false, fault: nativeBridge.classify(error), error: nativeBridge.friendlyError(error) });
   }
 }
 
