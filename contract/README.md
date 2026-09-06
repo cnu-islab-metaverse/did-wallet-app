@@ -1,26 +1,77 @@
-# contract — ZK 검증 기반 소울바운드 패스 SBT (Foundry)
+# contract — ZK 검증 기반 소울바운드 자격증명 SBT (Foundry)
 
 자격 조건을 ZK(circom+Groth16)로 증명하면 온체인에서 **소울바운드 SBT**를 발급하는 컨트랙트.
-증명 회로는 `../circuits`, 발급된 SBT는 `../`(지갑) 및 `metaverse-world`(아바타 접근 제어)가 사용한다.
+증명 회로는 `../circuits`, 발급된 SBT는 `../wallet`(지갑) 및 `metaverse-world`(아바타 접근 제어)가 사용한다.
 
-## 구조 — [발급 SBT(앞) → 검증 Verifier(뒤)] × 2 시나리오
+## 구조 — 범용 발급자 1개 + 시나리오별 검증자 N개
 
 ```
-사용자 지갑 ──mintPass(proof, [currentDate, walletAddress], tokenURI)──▶ 발급 SBT ──verifyProof──▶ 검증 Verifier
+지갑 ──mintPass(passType, proof, [currentDate, walletAddress], tokenURI)──▶ ZKCredentialSBT
+                                                                              │
+                                              passType → verifier 레지스트리 ──┴──▶ *Verifier.verifyProof
 ```
 
-| 시나리오 | 발급 SBT (앞) | 검증 Verifier (뒤) | 대응 회로 |
+| 파일 | 역할 |
+|---|---|
+| **`ZKCredentialSBT.sol`** | **범용 발급자.** ERC-721 + ERC-5192(양도불가). 시나리오는 "패스 타입"으로 등록해 붙인다 |
+| `IZKVerifier.sol` | 검증자 공통 인터페이스. 공개신호 = `[currentDate, walletAddress]` |
+| `YouthPassVerifier.sol` | 지역청년패스(대전 거주 + 만 19~34세) — 회로 `youth_pass` 산출물 |
+| `RegionalUnivVerifier.sol` | 지방거점국립대 재학/졸업 — 회로 `regional_national_univ` 산출물 |
+
+검증자 2종은 **회로 산출물**(`snarkjs exportsolidityverifier`) — 직접 수정 금지, 회로 변경 시 재복사.
+검증키 상수는 `../circuits/build/<name>/Verifier.sol` 과 동일하며 컨트랙트 이름만 바꿔 넣는다.
+
+### 왜 시나리오마다 컨트랙트를 만들지 않는가
+
+데모 계획서(`연구과제산출물/메타버스 권한관리 실증 데모 계획`)의 확장 시나리오가 DAO 투표권·기간제한
+입장권·지역 기반·직업/소속 인증으로 계속 늘어난다. 시나리오마다 SBT 를 새로 배포하면 그때마다
+배포와 메타버스 씬의 주소 목록 갱신이 따라붙는다. 검증자만 모듈로 붙이면 **SBT 주소는 하나로 고정**된다.
+
+> 참고: `metaverse-world` 의 `MetaverseSBTs`(MVC)는 `mintCredential(to, typeId) onlyOwner` 로
+> **운영자가 중앙 발급**하는 자리표시자다. 이 저장소의 `ZKCredentialSBT` 는 ZK 증명 없이는
+> 누구도(소유자조차) 발급할 수 없다는 점이 다르다.
+
+## 발급 검사 (3중)
+
+공개신호 `[currentDate(YYYYMMDD), walletAddress]` 기준:
+
+1. `verifier.verifyProof(...)` — 해당 패스 타입에 등록된 회로 검증자
+2. `msg.sender == walletAddress` — **제출자 바인딩(A2)**. 도난 VP 를 다른 계정에서 쓰지 못하게 막는다
+   (국내특허 2025-1-328-KR「블록체인 지갑 주소 바인딩 기반 영지식 증명 인증 시스템」)
+3. `currentDate ≈ block.timestamp`(KST 변환, 어제까지 허용) — 과거 날짜로 나이·만료를 우회하지 못하게
+
+발급 단위는 **(보유자, 패스 타입) 조합당 1토큰**. 같은 타입을 재증명하면 새 토큰이 아니라
+tokenURI 와 유효기간이 **갱신**된다. nullifier 는 쓰지 않는다(다중 아바타 허용).
+
+## 패스 타입 레지스트리 (모듈 부착·분리)
+
+```solidity
+registerPassType(uint256 passType, address verifier, uint64 validitySeconds)  // onlyOwner, 추가 전용
+retirePassType(uint256 passType)                                             // onlyOwner, 신규 발급만 중단
+```
+
+- **추가 전용**: 이미 등록된 타입의 검증자는 덮어쓸 수 없다. 발급이 이뤄진 뒤에 운영자가
+  "무엇을 증명해야 하는지"를 바꿔치기하는 경로를 원천 차단한다.
+- **폐지**는 신규 발급만 막고 기존 보유분의 검증 의미는 건드리지 않는다.
+- 모든 등록·폐지는 `PassTypeRegistered` / `PassTypeRetired` 이벤트로 온체인에 남는다.
+
+현재 등록되는 타입(`script/DeployZKCredentialSBT.s.sol`):
+
+| passType | 시나리오 | 검증자 | 유효기간 |
 |---|---|---|---|
-| 지역청년패스(대전 거주+만19~34세) | `YouthPassSBT` | `YouthPassVerifier` | `circuits youth_pass` |
-| 지방거점국립대 재학/졸업(유효기간 내) | `RegionalUnivPassSBT` | `RegionalUnivVerifier` | `circuits regional_national_univ` |
+| `1` | 지역청년패스 | `YouthPassVerifier` | 365일 (나이 조건은 해마다 재증명) |
+| `2` | 지방거점국립대 | `RegionalUnivVerifier` | 무기한 (`0`) |
 
-- **표준**: `SoulboundPass`(공통 베이스)가 **ERC-721 + ERC-5192**(`IERC5192`, 양도불가 잠금) 구현. 두 SBT가 상속.
-- **발급 검사**(공개신호 `[currentDate(YYYYMMDD), walletAddress]`):
-  1. `verifier.verifyProof(...)` — ZK 증명
-  2. `msg.sender == walletAddress` — 제출자 바인딩(A2). 도난 VP 타계정 사용 차단
-  3. `currentDate ≈ block.timestamp`(KST 변환, 어제까지 허용) — 시점 무결성(과거날짜로 나이·만료 우회 차단)
-- **일회성**: 주소당 1토큰(`addressToTokenId`, 재제출 시 URI 갱신). nullifier 미사용(다중 아바타 허용).
-- 검증 Verifier 2종은 **회로 산출물**(`snarkjs exportsolidityverifier`) — 직접 수정 금지, 회로 변경 시 재복사.
+## 유효기간 / 조회
+
+데모 계획서의 "기간 기반 SBT 만료 처리 — 유효기간이 지난 SBT 의 사용 불가" 요구사항.
+
+```solidity
+isValid(uint256 tokenId) → bool                       // 존재 + 만료 전
+hasValidPass(address holder, uint256 passType) → bool  // 메타버스 접근 제어 진입점
+```
+
+만료돼도 토큰을 소각하지 않는다 — 보유 이력은 남고 `isValid` 만 false 가 된다.
 
 ## 빌드 / 테스트
 
@@ -29,23 +80,40 @@ forge build
 forge test -vv     # 실제 회로 증명(circuits/vc.json 기반)으로 온체인 발급까지 검증
 ```
 
-테스트(`test/Passes.t.sol`)는 고정 증명 calldata + `vm.warp`(2026-07-27 KST)로 정상발급·A2거부·시점거부·
-허용오차·잘못된증명거부·전송거부·표준지원을 확인한다.
+`test/ZKCredentialSBT.t.sol` 은 고정 증명 calldata + `vm.warp`(2026-07-27 KST)로 **17건**을 확인한다:
+정상발급 2종 · A2거부 · 시점거부 · 허용오차 · 잘못된증명거부 · 전송거부 · 표준지원 ·
+타입교차보유 · 재증명갱신 · 만료 · 무기한 · 미등록타입 · 재등록거부 · 비소유자등록거부 · 폐지 · 미보유조회.
 
 ## 배포
 
 ```bash
-forge script script/DeployPasses.s.sol:DeployPasses --rpc-url <RPC> --private-key <KEY> --broadcast
+forge script script/DeployZKCredentialSBT.s.sol:DeployZKCredentialSBT \
+  --rpc-url <RPC> --private-key <KEY> --broadcast
 ```
 
-Verifier→SBT 쌍 2개를 CREATE2 로 배포(새 버전은 salt 변경). 출력된 주소를 아래에 반영한다.
+발급자 1개 + 검증자 2개를 배포하고 패스 타입 2종을 등록한다.
 
-### 배포 후 갱신 필요 (재배포 시 주소 변경)
+> **주의**: `ZKCredentialSBT` 는 CREATE2(`new X{salt:}`)로 배포하지 않는다. CREATE2 로 올리면
+> 생성자의 `msg.sender` 가 배포 팩토리가 되어 소유권이 팩토리로 잡히고 `registerPassType` 을
+> 영영 호출할 수 없다. 그래서 소유자를 생성자 인자로 명시한다. 검증자는 상태가 없어 CREATE2 로 고정해도 안전하다.
 
-- `verifier-web/src/config/deployment.config.js` — SBT/Verifier 주소
-- `contract/QUERY.md`, `contract/scripts/query-sbt.js` — 조회 대상 주소·컨트랙트명(`mintSBT`→`mintPass`, `CityYouthPassSBT`→`YouthPassSBT`/`RegionalUnivPassSBT`)
+### 배포 후 갱신 필요
+
+- `verifier-web/src/config/deployment.config.js` — SBT 주소. 함수명·시그니처도 구버전
+  (`mintSBT(...,uint256[5],string)`)이라 `mintPass(uint256,...,uint256[2],string)` 로 갱신해야 한다
+- `contract/QUERY.md`, `contract/scripts/query-sbt.js` — 조회 대상 주소·컨트랙트명
+- (별도 저장소) `metaverse-world/metaverse-scene/blockchain/tokenService.ts` 의 `Credentials/BADGE`
+  주소를 새 `ZKCredentialSBT` 로 바꿔야 씬이 ZK 발급분을 읽는다
+
+### 새 시나리오 추가
+
+1. `../circuits` 에서 회로 작성 → `yarn build <name>` → `build/<name>/Verifier.sol` 산출
+2. 이 저장소 `src/` 에 복사(컨트랙트 이름만 변경) → 배포
+3. 이미 배포된 `ZKCredentialSBT` 에 `registerPassType(newType, newVerifier, validity)` 호출
+
+SBT 주소도, 메타버스 씬의 설정도 그대로다.
 
 ## 증명 calldata 생성 (테스트/데모용)
 
-`../circuits` 에서 witness→`groth16.fullProve`→`snarkjs.groth16.exportSolidityCallData` 로
+`../circuits` 에서 witness → `groth16.fullProve` → `snarkjs.groth16.exportSolidityCallData` 로
 `[pA, pB, pC, pubSignals]` 를 출력해 컨트랙트/테스트에 넣는다. (공개신호=`[currentDate, walletAddress]`)

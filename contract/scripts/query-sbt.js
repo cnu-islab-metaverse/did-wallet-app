@@ -1,145 +1,95 @@
-// Anvil 컨트랙트 상태 조회 스크립트
-// 사용법: node scripts/query-sbt.js [주소]
+// ZKCredentialSBT 온체인 상태 조회.
+// 사용법:
+//   node scripts/query-sbt.js                      전체 요약 (등록된 패스 타입 + 발급 현황)
+//   node scripts/query-sbt.js <보유자주소>          해당 지갑의 패스 보유·유효 여부
+//   RPC_URL=... node scripts/query-sbt.js          RPC 재지정
 
 const { ethers } = require('ethers');
+const { getDeploymentConfig, PASS_TYPE } = require('../../verifier-web/src/config/deployment.config');
 
-const CONTRACT_ADDRESS = '0x0d2aa97CbBC38DBE72529169A931C5f6A10d62BE';
-const RPC_URL = 'http://localhost:8545';
+const cfg = getDeploymentConfig();
+const CONTRACT_ADDRESS = cfg.contract.zkCredentialSBT;
+const RPC_URL = process.env.RPC_URL || cfg.network.rpcUrl;
 
-// ERC721 ABI (필요한 함수만)
-const ERC721_ABI = [
-  'function balanceOf(address owner) external view returns (uint256)',
-  'function ownerOf(uint256 tokenId) external view returns (address)',
-  'function tokenURI(uint256 tokenId) external view returns (string)',
-  'function totalSupply() external view returns (uint256)',
-  'function name() external view returns (string)',
-  'function symbol() external view returns (string)',
+const ABI = [
+  'function name() view returns (string)',
+  'function symbol() view returns (string)',
+  'function owner() view returns (address)',
+  'function nextTokenId() view returns (uint256)',
+  'function passTypes(uint256) view returns (address verifier, uint64 validitySeconds, bool retired)',
+  'function tokenOf(address, uint256) view returns (uint256)',
+  'function typeOf(uint256) view returns (uint256)',
+  'function expiresAt(uint256) view returns (uint64)',
+  'function isValid(uint256) view returns (bool)',
+  'function hasValidPass(address, uint256) view returns (bool)',
+  'function ownerOf(uint256) view returns (address)',
+  'function tokenURI(uint256) view returns (string)',
+  'function locked(uint256) view returns (bool)',
 ];
 
-// CityYouthPassSBT ABI
-const SBT_ABI = [
-  ...ERC721_ABI,
-  'function hasMinted(address) external view returns (bool)',
-  'function nextTokenId() external view returns (uint256)',
-  'function locked(uint256 tokenId) external view returns (bool)',
-];
+// 토큰의 expiresAt 은 절대 시각, 패스 타입의 validitySeconds 는 기간 — 표시를 구분한다.
+const fmtExpiry = (e) => (e === 0n ? '무기한' : new Date(Number(e) * 1000).toISOString().slice(0, 10));
+const fmtDuration = (s) => (s === 0n ? '무기한' : `${Number(s) / 86400}일`);
 
-async function queryContract(address = null) {
-  try {
-    const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, SBT_ABI, provider);
-
-    console.log('\n=== CityYouthPassSBT 컨트랙트 상태 ===\n');
-    
-    // 컨트랙트 기본 정보
-    const name = await contract.name();
-    const symbol = await contract.symbol();
-    const nextTokenId = await contract.nextTokenId();
-    
-    console.log(`컨트랙트 주소: ${CONTRACT_ADDRESS}`);
-    console.log(`이름: ${name}`);
-    console.log(`심볼: ${symbol}`);
-    console.log(`다음 토큰 ID: ${nextTokenId.toString()}`);
-    console.log(`총 발급된 토큰 수: ${nextTokenId - 1n}\n`);
-
-    // 특정 주소 조회
-    if (address) {
-      console.log(`=== 주소 조회: ${address} ===\n`);
-      
-      const balance = await contract.balanceOf(address);
-      const hasMinted = await contract.hasMinted(address);
-      
-      console.log(`잔액 (보유 토큰 수): ${balance.toString()}`);
-      console.log(`발급 여부: ${hasMinted ? '발급됨' : '미발급'}\n`);
-
-      if (balance > 0n) {
-        console.log('보유 토큰:');
-        // balanceOf가 0보다 크면 토큰이 있는 것이므로, 모든 토큰을 확인
-        // ERC721의 balanceOf는 특정 주소가 가진 토큰 수만 반환하므로,
-        // 실제로 어떤 토큰을 가지고 있는지는 이벤트 로그를 확인해야 함
-        // 여기서는 간단히 nextTokenId까지 확인
-        for (let i = 1; i < Number(nextTokenId); i++) {
-          try {
-            const owner = await contract.ownerOf(i);
-            if (owner.toLowerCase() === address.toLowerCase()) {
-              const tokenURI = await contract.tokenURI(i);
-              const isLocked = await contract.locked(i);
-              console.log(`  Token ID: ${i}`);
-              console.log(`    소유자: ${owner}`);
-              console.log(`    URI: ${tokenURI}`);
-              console.log(`    잠금 상태: ${isLocked ? '잠김 (Soulbound)' : '잠금 해제'}\n`);
-            }
-          } catch (e) {
-            // 토큰이 없으면 무시
-          }
-        }
-      }
-    } else {
-      // 모든 발급된 토큰 조회
-      if (nextTokenId > 1n) {
-        console.log('=== 모든 발급된 토큰 ===\n');
-        for (let i = 1; i < Number(nextTokenId); i++) {
-          try {
-            const owner = await contract.ownerOf(i);
-            const tokenURI = await contract.tokenURI(i);
-            const isLocked = await contract.locked(i);
-            console.log(`Token ID: ${i}`);
-            console.log(`  소유자: ${owner}`);
-            console.log(`  URI: ${tokenURI}`);
-            console.log(`  잠금 상태: ${isLocked ? '잠김 (Soulbound)' : '잠금 해제'}\n`);
-          } catch (e) {
-            console.log(`Token ID: ${i} - 조회 실패`);
-          }
-        }
-      } else {
-        console.log('발급된 토큰이 없습니다.\n');
-      }
-
-      // Anvil 기본 계정들의 발급 상태 확인
-      console.log('=== Anvil 기본 계정 발급 상태 ===\n');
-      const anvilAccounts = [
-        '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-        '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
-      ];
-
-      for (const addr of anvilAccounts) {
-        try {
-          const hasMinted = await contract.hasMinted(addr);
-          const balance = await contract.balanceOf(addr);
-          console.log(`${addr}`);
-          console.log(`  발급 여부: ${hasMinted ? '✓ 발급됨' : '✗ 미발급'}`);
-          console.log(`  보유 토큰 수: ${balance.toString()}\n`);
-        } catch (e) {
-          console.log(`${addr} - 조회 실패: ${e.message}\n`);
-        }
-      }
-    }
-
-    // 최근 트랜잭션 확인 (간단한 버전)
-    console.log('=== 최근 블록 확인 ===\n');
-    const blockNumber = await provider.getBlockNumber();
-    console.log(`현재 블록 번호: ${blockNumber}`);
-    
-    if (blockNumber > 0) {
-      const latestBlock = await provider.getBlock(blockNumber, true);
-      console.log(`최근 블록의 트랜잭션 수: ${latestBlock?.transactions?.length || 0}`);
-    }
-
-  } catch (error) {
-    console.error('오류:', error.message);
-    if (error.data) {
-      console.error('상세 정보:', error.data);
-    }
+async function main() {
+  if (!CONTRACT_ADDRESS) {
+    console.error('배포 주소가 비어 있습니다. deployment.config 를 확인하세요.');
+    process.exit(1);
   }
+  const provider = new ethers.JsonRpcProvider(RPC_URL);
+  const c = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+
+  console.log(`\n네트워크 : ${cfg.network.name} (${cfg.network.chainId})`);
+  console.log(`컨트랙트 : ${CONTRACT_ADDRESS}`);
+  console.log(`토큰     : ${await c.name()} (${await c.symbol()})`);
+  console.log(`소유자   : ${await c.owner()}`);
+
+  console.log('\n── 등록된 패스 타입 ──');
+  for (const [label, id] of Object.entries(PASS_TYPE)) {
+    const t = await c.passTypes(id);
+    const state = t.verifier === ethers.ZeroAddress ? '미등록' : t.retired ? '폐지됨' : '활성';
+    console.log(`  [${id}] ${label.padEnd(14)} ${state.padEnd(6)} verifier=${t.verifier} 유효기간=${fmtDuration(t.validitySeconds)}`);
+  }
+
+  const holder = process.argv[2];
+  if (holder) {
+    console.log(`\n── 보유 현황: ${holder} ──`);
+    for (const [label, id] of Object.entries(PASS_TYPE)) {
+      const tokenId = await c.tokenOf(holder, id);
+      if (tokenId === 0n) {
+        console.log(`  [${id}] ${label.padEnd(14)} 미보유`);
+        continue;
+      }
+      const [valid, exp, uri, lock] = await Promise.all([
+        c.isValid(tokenId),
+        c.expiresAt(tokenId),
+        c.tokenURI(tokenId),
+        c.locked(tokenId),
+      ]);
+      console.log(
+        `  [${id}] ${label.padEnd(14)} tokenId=${tokenId} ${valid ? '유효' : '만료'} ` +
+          `만료일=${fmtExpiry(exp)} soulbound=${lock} uri=${uri}`,
+      );
+    }
+  } else {
+    const next = await c.nextTokenId();
+    const issued = next - 1n;
+    console.log(`\n── 발급 현황 ── 총 ${issued}건`);
+    for (let id = 1n; id <= issued; id++) {
+      const [ownerAddr, passType, valid, exp] = await Promise.all([
+        c.ownerOf(id),
+        c.typeOf(id),
+        c.isValid(id),
+        c.expiresAt(id),
+      ]);
+      console.log(`  tokenId=${id} passType=${passType} ${valid ? '유효' : '만료'} 만료일=${fmtExpiry(exp)} 보유자=${ownerAddr}`);
+    }
+    console.log('\n(보유자 주소를 인자로 주면 해당 지갑 기준으로 조회합니다)');
+  }
+  console.log('');
 }
 
-// 명령줄 인자로 주소를 받거나 전체 조회
-const address = process.argv[2] || null;
-if (address && !ethers.isAddress(address)) {
-  console.error('올바른 이더리움 주소를 입력해주세요.');
+main().catch((e) => {
+  console.error(e?.message || e);
   process.exit(1);
-}
-
-queryContract(address);
-
+});

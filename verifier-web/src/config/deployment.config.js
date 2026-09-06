@@ -1,20 +1,26 @@
 /**
- * 배포 환경 설정
- * Anvil 로컬 또는 Sepolia 테스트넷 중 선택
- * 
- * 이 파일은 src/config/deployment.config.ts의 설정과 동기화되어야 합니다.
+ * 온체인 배포 정보 — ZKCredentialSBT(범용 ZK 자격증명 발급자).
+ * wallet/core/config/deployment.config.ts 와 값이 일치해야 한다.
+ *
+ * 시나리오가 늘어도 SBT 주소는 그대로이고 passType 만 추가된다.
  */
 
 // 배포 환경 선택: 'anvil' 또는 'sepolia'
 const DEPLOYMENT_ENV = 'sepolia';
 
-// 배포 환경별 설정
+// 패스 타입 ID — contract/script/DeployZKCredentialSBT.s.sol 및 테스트와 같은 값.
+const PASS_TYPE = {
+  youthPass: 1, // 지역청년패스 (대전 거주 + 만 19~34세). 유효기간 365일
+  regionalUniv: 2, // 지방거점국립대 재학/졸업. 무기한
+};
+
 const DEPLOYMENT_CONFIGS = {
   anvil: {
     environment: 'anvil',
     contract: {
-      cityYouthPassSBT: '0x0d2aa97CbBC38DBE72529169A931C5f6A10d62BE',
-      daejeonYouthVerifier: '0x205868EB1c45633d3263e9C7178594c4879C5be9',
+      // 로컬 anvil 은 배포할 때마다 달라진다. forge script 출력값으로 갱신할 것.
+      zkCredentialSBT: '',
+      verifiers: { youthPass: '', regionalUniv: '' },
     },
     network: {
       chainId: 31337,
@@ -24,19 +30,22 @@ const DEPLOYMENT_CONFIGS = {
   },
   sepolia: {
     environment: 'sepolia',
+    // 2026-09-05 배포. 소유자 0xdDb968E5D31fD578115096f1e2BE33Bdb7F348B2
     contract: {
-      cityYouthPassSBT: '0x9dCa1C3d54548E86ACc9341c6CA9bc0748B93539', // Sepolia 배포 주소 (v3 - 대전 로고 적용)
-      daejeonYouthVerifier: '0xfBE1FF5E1AF3082d5d5f0BBc4454bEfa92229d70', // Sepolia 배포 주소 (v3)
+      zkCredentialSBT: '0xF66B3b93b5FeC7f8Bd169dcd3589bf45c673E021',
+      verifiers: {
+        youthPass: '0x2cEfc1eb31A6b75A4c40b4c8111Ef6998304ee59',
+        regionalUniv: '0xA0ad136FABd87e00DadaE2cE82f92fa9d97533c8',
+      },
     },
     network: {
       chainId: 11155111,
       name: 'Sepolia Testnet',
-      rpcUrl: 'https://rpc.ankr.com/eth_sepolia',
+      rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
     },
   },
 };
 
-// 현재 선택된 배포 환경 설정 가져오기
 function getDeploymentConfig() {
   return DEPLOYMENT_CONFIGS[DEPLOYMENT_ENV];
 }
@@ -45,11 +54,14 @@ function getDeploymentConfig() {
 function getContractInfo() {
   const config = getDeploymentConfig();
   return {
-    address: config.contract.cityYouthPassSBT,
-    functionName: 'mintSBT',
-    functionSignature: 'mintSBT(uint256[2],uint256[2][2],uint256[2],uint256[5],string)',
-    description: 'Zero-Knowledge Proof 검증 및 지역청년패스 SBT 발급',
-    verifierAddress: config.contract.daejeonYouthVerifier,
+    address: config.contract.zkCredentialSBT,
+    functionName: 'mintPass',
+    // 공개신호는 [currentDate(YYYYMMDD), walletAddress] 2개.
+    // 호출자는 반드시 walletAddress 여야 한다(A2 바인딩) — 도난 증명의 타계정 재사용 차단.
+    functionSignature:
+      'mintPass(uint256,uint256[2],uint256[2][2],uint256[2],uint256[2],string)',
+    description: '영지식 증명 검증 후 소울바운드 자격증명 SBT 발급',
+    verifiers: config.contract.verifiers,
     network: config.network,
   };
 }
@@ -60,6 +72,7 @@ if (typeof window !== 'undefined') {
     getDeploymentConfig,
     getContractInfo,
     DEPLOYMENT_ENV,
+    PASS_TYPE,
   };
 }
 
@@ -69,6 +82,6 @@ if (typeof module !== 'undefined' && module.exports) {
     getDeploymentConfig,
     getContractInfo,
     DEPLOYMENT_ENV,
+    PASS_TYPE,
   };
 }
-

@@ -20,8 +20,8 @@
   "validFrom": "2025-10-01T00:00:00.000Z",
   "validUntil": "2030-10-01T00:00:00.000Z",
   "credentialSubject": {
-    "id": "did:ethr:0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
-    "walletAddress": "0x83f03255fC8bBd37Ca7326d6CC79baF056470c9d",
+    "id": "did:ethr:0x2e72f6b535B0cAd2c6C1acFE90cE269a443352e1",
+    "walletAddress": "0x2e72f6b535B0cAd2c6C1acFE90cE269a443352e1",
     "name": "홍길동",
     "birthDate": "1998-03-10",
     "sex": "male",
