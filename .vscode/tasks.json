@@ -1,68 +1,57 @@
 {
-  // Auto-run dev servers in separate terminals when the workspace opens
   "$schema": "https://raw.githubusercontent.com/microsoft/vscode/master/src/vs/workbench/contrib/tasks/common/tasks.schema.json",
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Dev: Issuer",
-      "type": "shell",
-      "command": "npm run dev:issuer",
-      "options": { "cwd": "${workspaceFolder}" },
-      "isBackground": true,
-      "problemMatcher": [],
-      "presentation": { "reveal": "always", "panel": "new" }
-    },
-    {
-      "label": "Dev: Metaverse",
-      "type": "shell",
-      "command": "npm run dev:metaverse",
-      "options": { "cwd": "${workspaceFolder}" },
-      "isBackground": true,
-      "problemMatcher": [],
-      "presentation": { "reveal": "always", "panel": "new" }
-    },
-    {
-      "label": "Dev: Desktop",
+      "label": "Wallet",
       "type": "shell",
       "command": "npm run dev:desktop",
       "options": { "cwd": "${workspaceFolder}" },
       "isBackground": true,
       "problemMatcher": [],
-      "presentation": { "reveal": "always", "panel": "new" }
+      "presentation": { "reveal": "always", "panel": "new", "group": "wallet" }
     },
     {
-      "label": "Dev: Extension",
+      "label": "Wallet (archive)",
       "type": "shell",
-      "command": "npm run dev:ext",
+      "command": "npm run dev:desktop",
+      "options": { "cwd": "${workspaceFolder}", "env": { "WALLET_VIEW": "legacy" } },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "new", "group": "wallet" }
+    },
+    {
+      "label": "Issuer (Gov24)",
+      "type": "shell",
+      "command": "npm run dev:issuer",
       "options": { "cwd": "${workspaceFolder}" },
       "isBackground": true,
       "problemMatcher": [],
-      "presentation": { "reveal": "always", "panel": "new" }
+      "presentation": { "reveal": "always", "panel": "new", "group": "services" }
     },
     {
-      "label": "Dev: Verifier",
+      "label": "Issuer (CNU)",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": { "cwd": "${workspaceFolder}/cnu-issuer-web", "env": { "PORT": "20252" } },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "new", "group": "services" }
+    },
+    {
+      "label": "Verifier",
       "type": "shell",
       "command": "npm run dev:verifier",
-      "options": { "cwd": "${workspaceFolder}" },
+      "options": { "cwd": "${workspaceFolder}", "env": { "PORT": "20260" } },
       "isBackground": true,
       "problemMatcher": [],
-      "presentation": { "reveal": "always", "panel": "new" }
+      "presentation": { "reveal": "always", "panel": "new", "group": "services" }
     },
     {
-      "label": "Dev: All (auto)",
-      "dependsOn": [
-        "Dev: Issuer",
-        "Dev: Metaverse",
-        "Dev: Desktop",
-        "Dev: Extension",
-        "Dev: Verifier"
-      ],
+      "label": "Wallet + Services",
+      "dependsOn": ["Wallet", "Issuer (Gov24)", "Issuer (CNU)", "Verifier"],
       "dependsOrder": "parallel",
-      "runOptions": {
-        "runOn": "folderOpen"
-      }
+      "problemMatcher": []
     }
   ]
 }
-
-

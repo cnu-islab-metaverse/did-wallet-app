@@ -1,0 +1,23 @@
+/* Import TitleBar styles */
+@import './components/TitleBar.css';
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+#root { overflow: hidden; } /* 스크롤은 앱 내부 영역에서 처리 */
+
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family: 'Malgun Gothic', 'Noto Sans KR', 'Pretendard', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  /* 테마 토큰(App.css / ui/tokens.css 공통 정의) — documentElement.theme--dark 로 전환 */
+  color: var(--text-primary, #2d3142);
+  background: var(--panel-soft, #f7f9fc);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}

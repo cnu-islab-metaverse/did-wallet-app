@@ -273,21 +273,28 @@ temp/
 *.sw?
 .idea
 
-# Extension (ext/) specific
-ext/dist/
-ext/build/
-ext/dist-zip/
-ext/.turbo/
-ext/chrome-extension/manifest.js
-ext/chrome-extension/pre-build.tsconfig.tsbuildinfo
-ext/tsconfig.tsbuildinfo
-ext/**/tailwind-output.css
+# Extension (wallet/extension/) specific
+wallet/extension/dist/
+wallet/extension/build/
+wallet/extension/dist-zip/
+wallet/extension/.turbo/
+wallet/extension/chrome-extension/manifest.js
+wallet/extension/chrome-extension/pre-build.tsconfig.tsbuildinfo
+wallet/extension/tsconfig.tsbuildinfo
+wallet/extension/**/tailwind-output.css
 
-# Desktop (desktop/) specific
-desktop/dist/
-desktop/dist-electron/
+# Desktop (wallet/desktop/) specific
+wallet/desktop/dist/
+wallet/desktop/dist-electron/
+wallet/desktop/release/
 
 # Sensitive & Personal Files
+.secrets/
+
+# 참고용으로 클론해 둔 외부 저장소(자체 .git 보유, circuit_final.zkey 31MB).
+# 커밋하면 gitlink 가 생기거나 저장소만 부풀어 재현에 도움이 되지 않는다.
+연구과제산출물/zk-vc-extention-reference/
+
 memo.txt
 **/memo.txt
 vc.json

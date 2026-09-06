@@ -9,4 +9,4 @@
 - 목적: 재구축 중 "원래 이렇게 동작/의도했다"를 대조하는 레퍼런스. git 이력에도 동일 내용이 있으나
   브라우징 편의를 위해 명시적으로 보존.
 
-재구축 계획: `docs/wallet-ui-rebuild-plan.md` 참조.
+재구축 계획: `wallet/wallet-ui-rebuild-plan.md` 참조.

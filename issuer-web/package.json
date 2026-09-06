@@ -5,6 +5,7 @@
   "type": "commonjs",
   "scripts": {
     "init-db": "ts-node src/database/init-db.ts",
+    "predev": "node ../scripts/kill-port.mjs 20251",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc -p .",
     "start": "node dist/server.js"

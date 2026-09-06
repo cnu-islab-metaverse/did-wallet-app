@@ -1,0 +1,31 @@
+{
+  "name": "wallet",
+  "version": "0.0.0",
+  "private": true,
+  "description": "DID·SBT 지갑 본체 — core(공유 로직) + desktop(Electron 앱). 확장은 별도 pnpm 프로젝트로 워크스페이스 밖에 있다.",
+  "workspaces": {
+    "packages": [
+      "core",
+      "desktop"
+    ],
+    "nohoist": [
+      "**/electron",
+      "**/electron/**",
+      "**/vite-plugin-electron",
+      "**/vite-plugin-electron/**",
+      "**/vite-plugin-electron-renderer",
+      "**/vite-plugin-electron-renderer/**",
+      "**/electron-builder",
+      "**/electron-builder/**"
+    ]
+  },
+  "scripts": {
+    "dev": "yarn workspace desktop dev",
+    "build": "yarn workspace desktop build",
+    "typecheck": "yarn workspace desktop typecheck && yarn workspace @shared/did-wallet-core typecheck",
+    "lint": "yarn workspace desktop lint"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

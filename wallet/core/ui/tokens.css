@@ -1,0 +1,90 @@
+/* [디자인 토큰] 재구축 UI 의 단일 스타일 소스. 기존 App.css 의 색(느낌)을 보존하고
+   간격·반경·타이포·그림자·z-index 스케일을 추가했다. 모든 프리미티브가 이 변수만 참조한다.
+   테마: 기본(light) + .theme--dark. (기존 App 의 theme--dark 토글과 호환) */
+:root {
+  /* 배경/텍스트/패널 */
+  --bg-grad-start: #eef2ff;
+  --bg-grad-end: #e9d5ff;
+  --text-primary: #2d3142;
+  --text-muted: #7a8296;
+  --text-warning: #d62e90;
+  --panel-bg: #ffffff;
+  --panel-border: #d3d8e2;        /* 경계 대비 강화(기존 #e7e9ee 너무 옅음) */
+  --panel-soft: #f4f6fa;
+
+  /* 브랜드/상태 색 (인디고 primary · 퍼플 secondary) */
+  --btn-primary: #6366f1;         --btn-primary-hover: #4f46e5;
+  --btn-primary-light: #e0e7ff;   --btn-primary-light-hover: #c7d2fe;
+  --btn-secondary: #8b5cf6;       --btn-secondary-hover: #7c3aed;
+  --btn-secondary-light: #ede9fe; --btn-secondary-light-hover: #ddd6fe;
+  --btn-success: #10b981;         --btn-success-hover: #059669;
+  --btn-success-light: #d1fae5;   --btn-success-light-hover: #a7f3d0;
+  --btn-danger: #ef4444;          --btn-danger-hover: #dc2626;
+  --btn-danger-light: #fee2e2;    --btn-danger-light-hover: #fecaca;
+  --btn-warning: #f59e0b;         --btn-warning-hover: #d97706;
+  --btn-warning-light: #fef3c7;   --btn-warning-light-hover: #fde68a;
+
+  /* 별칭(의미 기반) */
+  --color-bg: var(--panel-bg);
+  --color-fg: var(--text-primary);
+  --color-muted: var(--text-muted);
+  --color-border: var(--panel-border);
+  --color-surface: var(--panel-soft);
+  --color-border-strong: #b9c1d1;  /* 사이드바/헤더/패널 등 큰 구역 경계용 */
+  --color-primary: var(--btn-primary);
+  --color-primary-hover: var(--btn-primary-hover);
+  --color-danger: var(--btn-danger);
+  --color-focus-ring: rgba(99, 102, 241, 0.35);
+
+  /* 부드러운 액센트(내비 활성·아이콘 타일 등 넓은 면적용 — 쨍한 원색 대신) */
+  --accent-soft-bg: #eaecff;
+  --accent-soft-fg: #4f46e5;
+
+  /* 간격 스케일 (4px 기반) */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+
+  /* 반경 (전반적으로 덜 둥글게) */
+  --radius-xs: 3px; --radius-sm: 5px; --radius-md: 6px; --radius-lg: 8px; --radius-pill: 999px;
+
+  /* 타이포 (Pretendard 우선 — 기본 시스템 폰트 느낌 탈피) */
+  --font-sans: 'Pretendard', 'Pretendard Variable', 'Noto Sans KR', 'Malgun Gothic', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+  --fs-xs: 11px; --fs-sm: 12.5px; --fs-md: 14px; --fs-lg: 16px; --fs-xl: 20px; --fs-2xl: 26px;
+  --fw-normal: 400; --fw-medium: 600; --fw-bold: 800;
+
+  /* 그림자 */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.10);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  /* z-index */
+  --z-modal-backdrop: 1000; --z-modal: 1001; --z-toast: 1100;
+}
+
+.theme--dark {
+  --bg-grad-start: #0e1726;
+  --bg-grad-end: #1f2937;
+  --text-primary: #e5e7eb;
+  --text-muted: #94a3b8;
+  --text-warning: #f8a8c4;
+  --panel-bg: #0b1220;
+  --panel-border: #313c52;         /* 다크 경계 대비 강화(기존 #1f2937 너무 어두움) */
+  --panel-soft: #111827;
+  --color-border-strong: #44506a;  /* 다크 큰 구역 경계용 */
+
+  --btn-primary-light: #312e81;   --btn-primary-light-hover: #3730a3;
+  --btn-secondary-light: #581c87; --btn-secondary-light-hover: #6b21a8;
+  --btn-success-light: #064e3b;   --btn-success-light-hover: #065f46;
+  --btn-danger-light: #7f1d1d;    --btn-danger-light-hover: #991b1b;
+  --btn-warning-light: #78350f;   --btn-warning-light-hover: #92400e;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --color-focus-ring: rgba(129, 140, 248, 0.35);
+
+  /* 다크: 채도 낮춘 부드러운 인디고(눈 편하게) */
+  --accent-soft-bg: #1c2137;
+  --accent-soft-fg: #aab4f5;
+}

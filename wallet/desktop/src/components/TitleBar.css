@@ -1,0 +1,131 @@
+.titlebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  z-index: 10000;
+  -webkit-app-region: drag;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.titlebar--light {
+  background: #f6f7fb;
+  border-bottom: 1px solid #e7e9ee;
+}
+
+.titlebar--dark {
+  background: #0e1726;
+  border-bottom: 1px solid #1f2937;
+}
+
+.titlebar-drag-region { flex: 1; height: 100%; -webkit-app-region: drag; }
+
+.titlebar-controls { display: flex; align-items: center; -webkit-app-region: no-drag; }
+.titlebar-controls--left { padding-left: 4px; gap: 6px; }
+.titlebar-controls--right { padding-right: 6px; gap: 4px; }
+
+/* 창 내 브랜드(아이콘 + 앱명) — 작업표시줄 아이콘과 동일 */
+.titlebar-brand { display: flex; align-items: center; gap: 7px; padding-left: 11px; height: 100%; -webkit-app-region: drag; }
+.titlebar-brand svg { display: block; width: 16px; height: 16px; }
+.titlebar-brand__name { font-size: 12px; font-weight: 700; letter-spacing: -0.01em; }
+.titlebar--light .titlebar-brand__name { color: #2d3142; }
+.titlebar--dark .titlebar-brand__name { color: #e5e7eb; }
+
+.titlebar-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+  -webkit-app-region: no-drag;
+}
+
+/* Light theme button styling */
+.titlebar--light .titlebar-btn {
+  color: #2d3142;
+}
+
+.titlebar--light .titlebar-btn:hover {
+  background: rgba(45, 49, 66, 0.1);
+}
+
+.titlebar--light .titlebar-btn svg {
+  fill: none !important;
+  stroke: #2d3142 !important;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Dark theme button styling */
+.titlebar--dark .titlebar-btn {
+  color: #f8fafc;
+}
+
+.titlebar--dark .titlebar-btn:hover {
+  background: rgba(248, 250, 252, 0.15);
+}
+
+.titlebar--dark .titlebar-btn svg {
+  fill: none !important;
+  stroke: #f8fafc !important;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* SVG icon base styling */
+.titlebar-btn svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+/* Feather Icons specific styling (stroke-based) */
+.titlebar-btn svg.feather {
+  fill: none !important;
+}
+
+.titlebar--light .titlebar-btn svg.feather {
+  stroke: #2d3142 !important;
+}
+
+.titlebar--dark .titlebar-btn svg.feather {
+  stroke: #f8fafc !important;
+}
+
+/* Bootstrap Icons specific styling (fill-based) */
+.titlebar-btn svg:not(.feather) path {
+  fill: inherit;
+}
+
+/* Close button special styling */
+.titlebar-btn--close:hover {
+  background: #ef4444 !important;
+  color: white !important;
+}
+
+.titlebar-btn--close:hover svg {
+  fill: white !important;
+  stroke: white !important;
+}
+
+
+/* Adjust app content for titlebar */
+.app--desktop {
+  padding-top: 10px;
+}
+.app--desktop .app {
+  min-height: calc(100vh - 10px);
+}
+
