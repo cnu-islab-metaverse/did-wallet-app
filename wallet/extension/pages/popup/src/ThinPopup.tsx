@@ -69,8 +69,8 @@ const ThinPopup = () => {
   }, [status]);
 
   return (
-    <div style={{ width: 360, minHeight: 420, padding: 18, fontFamily: 'Malgun Gothic, Noto Sans KR, sans-serif', color: '#1a1a1a' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+    <div style={{ width: '100%', height: '100%', boxSizing: 'border-box', padding: 18, display: 'flex', flexDirection: 'column', fontFamily: 'Malgun Gothic, Noto Sans KR, sans-serif', color: '#1a1a1a' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flex: 'none' }}>
         <div style={{ width: 30, height: 30, borderRadius: 8, background: 'linear-gradient(135deg,#6d8bff,#a06dff)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800 }}>W</div>
         <div>
           <div style={{ fontWeight: 800 }}>DID·SBT 지갑</div>
@@ -95,13 +95,13 @@ const ThinPopup = () => {
       )}
 
       {status === 'connected' && (
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           <div style={{ background: '#eef4fb', border: '1px solid #cfe0f2', borderRadius: 10, padding: 14, marginBottom: 14 }}>
             <div style={{ fontSize: 11, color: '#5a6472', marginBottom: 4 }}>연결됨 · 지갑 주소</div>
             <div style={{ fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all' }}>{address || '(주소 없음 — 데스크톱에서 지갑 생성)'}</div>
           </div>
-          <div style={{ fontWeight: 800, fontSize: 14, margin: '0 0 8px' }}>보관된 증명서(VC) {vcs.length}건</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflow: 'auto' }}>
+          <div style={{ fontWeight: 800, fontSize: 14, margin: '0 0 8px', flex: 'none' }}>보관된 증명서(VC) {vcs.length}건</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0, overflow: 'auto' }}>
             {vcs.length === 0 && <p style={{ fontSize: 12, color: '#5a6472' }}>아직 발급받은 VC가 없습니다.</p>}
             {vcs.map((vc, i) => {
               const t = Array.isArray(vc?.type) ? vc.type.find((x: string) => x !== 'VerifiableCredential') : 'VC';
@@ -114,7 +114,7 @@ const ThinPopup = () => {
               );
             })}
           </div>
-          <p style={{ fontSize: 11, color: '#8b96ab', marginTop: 14 }}>서명·발급 승인은 데스크톱 지갑 창에서 처리됩니다.</p>
+          <p style={{ fontSize: 11, color: '#8b96ab', marginTop: 14, flex: 'none' }}>서명·발급 승인은 데스크톱 지갑 창에서 처리됩니다.</p>
         </div>
       )}
     </div>

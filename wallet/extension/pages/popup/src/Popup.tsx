@@ -7,7 +7,7 @@ import ThinPopup from './ThinPopup';
 
 const Popup = () => {
   return (
-    <div>
+    <div style={{ height: '100%' }}>
       <ThinPopup />
     </div>
   );

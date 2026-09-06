@@ -259,7 +259,7 @@ export const WalletShell: React.FC = () => {
     void (async () => {
       setIssueErr('')
       const vc = vcs.find((v) => scenariosForVc(v).includes(r.request.scenario))
-      if (!vc) { setIssueErr(`이 요청에 맞는 증명서가 없습니다 (${SCENARIO_LABEL_MAP[r.request.scenario]}).`); setChecked(null); return }
+      if (!vc) { setIssueErr(`이 요청에 맞는 증명서가 없습니다 (${SCENARIO_LABEL_MAP[r.request.scenario]}).`); return }
       try {
         const res = await issuePass(vc, {
           scenario: r.request.scenario,
@@ -267,7 +267,7 @@ export const WalletShell: React.FC = () => {
           target: { contract: r.request.contract, passType: r.request.passType },
           onStage: (st) => setIssuing(st),
         })
-        setChecked(null); setIssuedResult(res); await refreshChainPasses()
+        setIssuedResult(res); await refreshChainPasses()
       } catch (e: any) { setIssueErr(e?.message || String(e)) }
       finally { setIssuing(null) }
     })()
@@ -279,8 +279,8 @@ export const WalletShell: React.FC = () => {
     const r = checked
     try { reqRespond?.(approved) } catch { /* 응답자 없음 */ }
     setReqRespond(null)
+    setChecked(null)
     if (approved && r) runRequestedIssue(r)
-    else setChecked(null)
   }
 
   const runIssue = (vc: any) => {
@@ -789,7 +789,7 @@ export const WalletShell: React.FC = () => {
       {/* 요청 승인 — 사이트의 주장이 아니라 체인에서 읽은 값을 보여준다 */}
       <Modal open={!!checked} title="인증토큰 발급 요청" onClose={() => settleRequest(false)}
         footer={<><Button variant="ghost" onClick={() => settleRequest(false)}>거절</Button>
-                 <Button variant="primary" disabled={!!issuing} onClick={() => settleRequest(true)}>{issuing ?? '승인 · 발급받기'}</Button></>}>
+                 <Button variant="primary" disabled={!!issuing} onClick={() => settleRequest(true)}>승인 · 발급받기</Button></>}>
         {checked && (() => { const r = checked.request; const o = checked.onChain; return (
           <div style={{ display: 'grid', gap: 12, fontSize: 13 }}>
             <div>
@@ -929,6 +929,22 @@ export const WalletShell: React.FC = () => {
           </div>
         ) })()}
       </Modal>
+
+      {/* 발급 진행 — 모달을 닫아도 계속 보인다. 증명 생성·트랜잭션 확정은 수십 초 걸린다. */}
+      {issuing && (
+        <div style={{ position: 'fixed', right: 18, bottom: 18, zIndex: 60, display: 'flex', alignItems: 'center', gap: 11,
+                      background: 'var(--panel-bg)', border: '1px solid var(--color-border)', borderRadius: 10,
+                      padding: '11px 15px', boxShadow: '0 8px 28px rgba(0,0,0,0.30)', maxWidth: 330 }}>
+          <style>{'@keyframes wsSpin{to{transform:rotate(360deg)}}'}</style>
+          <span style={{ width: 15, height: 15, flex: 'none', borderRadius: '50%', boxSizing: 'border-box',
+                         border: '2px solid var(--color-border)', borderTopColor: 'var(--btn-primary)',
+                         animation: 'wsSpin 0.8s linear infinite' }} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700 }}>인증토큰 발급 중</div>
+            <div style={{ fontSize: 11.5, color: 'var(--color-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{issuing}</div>
+          </div>
+        </div>
+      )}
 
       {/* 제시(VP) */}
       <Modal open={vp} title="증명서 제시 (VP)" onClose={() => setVp(false)}

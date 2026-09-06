@@ -3,7 +3,14 @@
 html, body {
   margin: 0;
   padding: 0;
+  height: 100%;
   overflow: hidden; /* hide scrollbars in popup */
+}
+
+/* 내용이 창을 채우지 않으면 남는 자리가 흰 여백으로 보인다. */
+#app-container,
+#app-container > * {
+  height: 100%;
 }
 
 /* 확장프로그램 팝업에서만 고정 크기 적용 */

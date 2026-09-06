@@ -100,6 +100,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
+// 브라우저 쪽 알림 — 승인 창은 데스크톱에 뜨므로, 요청을 보냈다는 사실이 브라우저에도 보여야 한다.
+function notify(title: string, message: string) {
+  try {
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icon-128.png'),
+      title,
+      message,
+    });
+  } catch { /* 알림 권한 없음 */ }
+}
+
+function setBadge(text: string, color = '#6d8bff') {
+  try {
+    chrome.action.setBadgeText({ text });
+    if (text) chrome.action.setBadgeBackgroundColor({ color });
+  } catch { /* */ }
+}
+
 // 발급 요청 중계 — 확장은 나르기만 하고 검증·승인은 데스크톱이 한다.
 // 데스크톱은 승인 즉시 응답하지만 사용자가 누르기까지 수십 초가 걸릴 수 있고,
 // MV3 서비스워커는 유휴 상태로 두면 그 사이 종료된다. 핑으로 깨워 둔다.
@@ -107,17 +126,23 @@ async function handlePassIssuance(message: any, sendResponse: (response: any) =>
   const keepAlive = setInterval(() => {
     nativeBridge.request('ping', {}, 3000).catch(() => {});
   }, 20000);
+  notify('지갑으로 보냈습니다', '데스크톱 지갑 창에서 승인해 주세요.');
+  setBadge('…');
   try {
     const res = await nativeBridge.request(
       'requestPassIssuance',
       { url: message.url, request: message.request, origin: message.origin },
       180000,
     );
+    if (res?.accepted) notify('승인됨', '증명을 만들어 발급하는 중입니다. 지갑 창에서 진행 상황을 볼 수 있습니다.');
+    else notify('발급하지 않았습니다', res?.error || '지갑에서 승인되지 않았습니다.');
     sendResponse({ ok: true, ...res });
   } catch (error: any) {
+    notify('지갑에 전달하지 못했습니다', nativeBridge.friendlyError(error));
     sendResponse({ ok: false, accepted: false, fault: nativeBridge.classify(error), error: nativeBridge.friendlyError(error) });
   } finally {
     clearInterval(keepAlive);
+    setBadge('');
   }
 }
 
