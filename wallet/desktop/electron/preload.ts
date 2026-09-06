@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   // ZK 증명 (메인 프로세스에서 수행 — zkey 36MB, 수 초 소요)
   zkReady: (scenario: string) => ipcRenderer.invoke('zk:ready', scenario),
   zkProve: (scenario: string, vc: unknown) => ipcRenderer.invoke('zk:prove', scenario, vc),
+  zkVerifyVc: (vc: unknown) => ipcRenderer.invoke('zk:verifyVc', vc),
 
   // App reload function
   reloadApp: () => ipcRenderer.invoke('reload-app'),

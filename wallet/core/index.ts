@@ -40,6 +40,10 @@ export { fetchPassRequest, formatValidity } from "./lib/passRequest";
 export type { PassIssuanceRequest, CheckedPassRequest, OnChainPassType } from "./lib/passRequest";
 export type { Scenario, ProofCalldata, IssueResult, OnChainPass } from "./lib/passIssuance";
 
+// 발급기관 표시 이름(공개키 기준)
+export { resolveIssuer, knownIssuers, verifyVcSignature } from './lib/issuerRegistry';
+export type { ResolvedIssuer, KnownIssuer } from './lib/issuerRegistry';
+
 // 활동 기록
 export { listActivity, logActivity, startActivity, updateActivity, clearActivity, originsFrom, timeAgo, ACTIVITY_EVENT } from './lib/activityLog';
 export type { ActivityEntry, ActivityKind, ActivityStatus } from './lib/activityLog';

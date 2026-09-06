@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { startWalletBridge } from './walletBridge'
 import { loadWindowState, manageWindowState } from './windowState'
-import { generateProof, circuitReady, type Scenario } from './proofService'
+import { generateProof, circuitReady, verifyVcSignature, type Scenario } from './proofService'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -89,6 +89,7 @@ app.whenReady().then(() => {
 
 // ZK 증명 — 렌더러는 VC 만 넘기고, 무거운 증명 생성은 여기(메인)에서 한다.
 ipcMain.handle('zk:ready', (_e, scenario: Scenario) => circuitReady(scenario))
+ipcMain.handle('zk:verifyVc', async (_e, vc: unknown) => verifyVcSignature(vc))
 ipcMain.handle('zk:prove', async (_e, scenario: Scenario, vc: unknown) => {
   const t0 = Date.now()
   const res = await generateProof(scenario, vc)

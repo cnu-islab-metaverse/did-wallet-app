@@ -57,6 +57,26 @@ function parseCallData(s: string) {
   return { pA, pB, pC, pubSignals } as Pick<ProofCalldata, 'pA' | 'pB' | 'pC' | 'pubSignals'>
 }
 
+/**
+ * 발급기관 서명 검증. 메시지는 SMT root 이므로 클레임이 한 글자만 달라도 실패한다.
+ * 증명 생성과 달리 zkey 가 필요 없어 즉시 끝난다.
+ */
+export async function verifyVcSignature(vc: any): Promise<{ verified: boolean; Ax?: string; Ay?: string; reason?: string }> {
+  try {
+    const w: any = await buildWitness(vc)
+    const s = sigFromVc(vc)
+    const F = w.F
+    const ok = w.eddsa.verifyPoseidon(
+      F.e(w.rootF),
+      { R8: [F.e(s.R8x), F.e(s.R8y)], S: BigInt(s.S) },
+      [F.e(s.Ax), F.e(s.Ay)],
+    )
+    return { verified: !!ok, Ax: String(s.Ax), Ay: String(s.Ay) }
+  } catch (e: any) {
+    return { verified: false, reason: String(e?.message || e) }
+  }
+}
+
 export async function generateProof(scenario: Scenario, vc: any): Promise<ProofCalldata> {
   if (!SCENARIO_INPUT[scenario]) throw new Error(`알 수 없는 시나리오: ${scenario}`)
   const a = circuitAssets(scenario)

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { Button, Modal, Field } from '../index'
 import { ThemeToggle } from '../ThemeToggle'
-import { DEMO_VCS, computeStatus, vcTitle, vcIssuer, vcDates, claimRows } from './demoVcs'
+import { DEMO_VCS, computeStatus, vcTitle, vcDates, claimRows } from './demoVcs'
 import { useWallet } from '../../state/useWallet'
 import { useVCs } from '../../state/useVCs'
 import { isDevModeEnabled } from '../../config/dev.config'
 import { issuePass, canIssue, scenariosForVc, fetchOnChainPasses, SCENARIO_LABEL as SCENARIO_LABEL_MAP, type OnChainPass } from '../../lib/passIssuance'
 import { fetchPassRequest, formatValidity, type CheckedPassRequest } from '../../lib/passRequest'
 import { listActivity, startActivity, updateActivity, logActivity, originsFrom, timeAgo, ACTIVITY_EVENT, type ActivityEntry } from '../../lib/activityLog'
+import { resolveIssuer, verifyVcSignature } from '../../lib/issuerRegistry'
 
 // [실 셸] 데스크톱 지갑 본체 UI — 좌측 메뉴로 뷰 전환(대시보드 / 증명서·인증토큰 목록 / 활동 / 설정).
 // 계정·VC 는 실제 저장소(hdWalletService·vcStore)에 연결돼 있고, 확장에서 오는 승인 요청도 여기서 받는다.
@@ -178,6 +179,8 @@ export const WalletShell: React.FC = () => {
   // 온체인에서 실제로 읽어온 보유 패스.
   const [chainPasses, setChainPasses] = useState<OnChainPass[]>([])
   const [activity, setActivity] = useState<ActivityEntry[]>([])
+  // 발급기관 서명 검증 결과(vcId → 통과 여부). 확인 못 한 것은 키가 없다.
+  const [vcVerified, setVcVerified] = useState<Record<string, boolean>>({})
   const [issuing, setIssuing] = useState<string | null>(null)  // 진행 단계 문구
   const [issueErr, setIssueErr] = useState('')
   const [issuedResult, setIssuedResult] = useState<any | null>(null)
@@ -225,6 +228,23 @@ export const WalletShell: React.FC = () => {
 
   // 연결된 서비스 = 기록에 남은 출처. 별도의 연결 권한 모델은 없다.
   const connected = originsFrom(activity)
+
+  // 발급기관 이름은 VC 의 문자열이 아니라 검증된 공개키에서 온다. 목록이 바뀌면 다시 확인한다.
+  const vcIds = vcs.map((v: any) => vcHook.vcId(v)).join(',')
+  useEffect(() => {
+    let alive = true
+    void (async () => {
+      const out: Record<string, boolean> = {}
+      for (const v of vcs) {
+        const ok = await verifyVcSignature(v)
+        if (ok !== undefined) out[vcHook.vcId(v)] = ok
+      }
+      if (alive) setVcVerified(out)
+    })()
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vcIds])
+  const issuerOf = (vc: any) => resolveIssuer(vc, vcVerified[vcHook.vcId(vc)])
 
   // 화면에 뿌릴 목록 = 온체인 보유분 + 직접 추가분
   const sbtList = [
@@ -331,7 +351,7 @@ export const WalletShell: React.FC = () => {
         if (!raw || typeof raw !== 'object') throw new Error('객체가 아닙니다')
         const r = await vcHook.addVC(raw)
         if (!r.ok) { setErr(r.duplicate ? '이미 보관 중인 증명서입니다.' : '저장에 실패했습니다.'); return }
-        await logActivity(acc.address, { kind: 'vc', title: `${vcTitle(raw)} 보관`, detail: vcIssuer(raw) })
+        await logActivity(acc.address, { kind: 'vc', title: `${vcTitle(raw)} 보관`, detail: resolveIssuer(raw).name })
         setPaste(''); setErr(''); setAdding(false)
       } catch (e: any) { setErr('올바른 VC JSON 이 아닙니다: ' + (e?.message || e)) }
     })()
@@ -496,7 +516,15 @@ export const WalletShell: React.FC = () => {
     <div style={{ display: 'grid', gap: 16 }}>
       <div>
         <div style={{ fontSize: 18, fontWeight: 800 }}>{vcTitle(vc)}</div>
-        <div style={{ fontSize: 12.5, color: 'var(--color-muted)' }}>{vcIssuer(vc)} · {st.label}{vc.validUntil ? ` · 유효기간 ${String(vc.validUntil).slice(0, 10)}` : ' · 무기한'}</div>
+        <div style={{ fontSize: 12.5, color: 'var(--color-muted)' }}>{issuerOf(vc).name} · {st.label}{vc.validUntil ? ` · 유효기간 ${String(vc.validUntil).slice(0, 10)}` : ' · 무기한'}</div>
+        {(() => {
+          const r = issuerOf(vc)
+          // 서명이 통과해도 VC 가 다른 이름을 주장하면 알린다(이름은 서명 대상이 아니다).
+          if (r.known && r.verified && !r.note) {
+            return <div style={{ fontSize: 11.5, color: 'var(--btn-success-hover)', marginTop: 3 }}>발급기관 서명 확인됨</div>
+          }
+          return <div style={{ fontSize: 11.5, color: 'var(--btn-danger)', marginTop: 3 }}>⚠ {r.note ?? '발급기관을 확인하지 못했습니다.'}</div>
+        })()}
       </div>
       <div>
         <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8 }}>포함된 신원정보</div>
@@ -555,7 +583,7 @@ export const WalletShell: React.FC = () => {
           const n = historyOf(vc).length
           if (lin && n > 0) await vcHook.removeLineage(lin)
           else await vcHook.removeVC(vcHook.vcId(vc))
-          await logActivity(acc.address, { kind: 'vc', title: `${vcTitle(vc)} 삭제`, detail: n > 0 ? `재발급 이력 ${n + 1}건 함께 삭제` : vcIssuer(vc) })
+          await logActivity(acc.address, { kind: 'vc', title: `${vcTitle(vc)} 삭제`, detail: n > 0 ? `재발급 이력 ${n + 1}건 함께 삭제` : issuerOf(vc).name })
           setDetailVc(null)
         }} style={{ color: 'var(--btn-danger)' }}>
           {historyOf(vc).length > 0 ? `이 증명서 삭제 (이력 ${historyOf(vc).length + 1}건)` : '이 증명서 삭제'}
@@ -631,7 +659,7 @@ export const WalletShell: React.FC = () => {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{vcTitle(vc)}</div>
                     <div style={{ fontSize: 12, color: 'var(--color-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {vcIssuer(vc)}
+                      {issuerOf(vc).name}
                       {historyOf(vc).length > 0 && <span style={{ marginLeft: 6, opacity: 0.85 }}>· 재발급 {historyOf(vc).length + 1}회</span>}
                     </div>
                   </div>
@@ -953,7 +981,7 @@ export const WalletShell: React.FC = () => {
             <div style={{ fontSize: 13, color: 'var(--color-muted)' }}><b style={{ color: 'var(--color-fg)' }}>{p.origin || '알 수 없는 사이트'}</b> 에서 아래 증명서를 발급합니다.</div>
             <div>
               <div style={{ fontSize: 16, fontWeight: 800 }}>{vcTitle(vc)}</div>
-              <div style={{ fontSize: 12.5, color: 'var(--color-muted)' }}>{vcIssuer(vc)}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--color-muted)' }}>{resolveIssuer(vc).name}</div>
             </div>
             <div>
               <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8 }}>포함된 신원정보</div>
