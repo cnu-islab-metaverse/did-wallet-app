@@ -1,8 +1,7 @@
-// [작업] 온체인 발급용 증명 calldata 생성기. vc.json 으로 witness 를 만들어 fullProve → verify →
-//        exportSolidityCallData 까지 수행하고, ZKCredentialSBT.mintPass 에 그대로 넣을 인자를 뽑는다.
-//        지갑(데스크톱)에 붙일 증명 모듈이 하게 될 일과 같은 절차의 CLI 판이다.
-// [결과] build/<name>/calldata.json 저장 + cast send 예시 출력.
-//   node calldata.mjs <name> [--passType N]     (예: node calldata.mjs youth_pass --passType 1)
+// [작업] mintPass 용 calldata 생성기. witness → fullProve → verify → exportSolidityCallData.
+//        지갑의 증명 모듈이 하는 일과 같은 절차의 CLI 판이다.
+// [결과] build/<name>/calldata.json + cast send 예시.
+//   node calldata.mjs <name> [--passType N]
 import * as snarkjs from 'snarkjs';
 import fs from 'fs';
 import path from 'path';

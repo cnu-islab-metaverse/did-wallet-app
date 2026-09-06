@@ -1,7 +1,7 @@
 {
   "extensionDescription": {
     "description": "Extension description",
-    "message": "Relays pass-issuance requests from web pages to the installed CNU DID Wallet desktop program. Keys and approvals stay there."
+    "message": "Relays issuance requests from web pages to the CNU DID Wallet desktop program."
   },
   "extensionName": {
     "description": "Extension name",

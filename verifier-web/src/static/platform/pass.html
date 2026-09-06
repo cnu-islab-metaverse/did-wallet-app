@@ -21,8 +21,8 @@
   <main class="wrap" style="padding-top:36px">
     <h1 style="font-size:26px;margin:0 0 8px;letter-spacing:-0.02em">인증토큰 발급</h1>
     <p class="note" style="margin:0 0 26px;max-width:640px">
-      입장하려는 공간을 고르면 발급 요청을 만들어 드립니다.
-      브라우저 확장이 있으면 지갑으로 바로 보내고, 없으면 요청 주소를 붙여넣거나 QR 을 읽어 승인합니다.
+      공간을 고르면 발급 요청을 만듭니다.
+      확장이 있으면 지갑으로 바로 보내고, 없으면 주소나 QR 로 전달합니다.
     </p>
 
     <div class="split">
@@ -41,10 +41,10 @@
               <button id="connect" class="line sm" type="button" style="flex:none" hidden>지갑에서 가져오기</button>
             </div>
             <div class="note" style="margin-top:6px">
-              실제 서비스에서는 Web3 로그인으로 자동 인식됩니다. 시연에서는 지갑의 활성 계정 주소를 넣어 주세요.
+              실제 서비스에서는 로그인으로 자동 인식됩니다. 시연에서는 직접 넣어 주세요.
             </div>
             <div id="extNote" class="note" style="margin-top:8px">
-              브라우저 확장을 찾는 중… 없으면 QR 또는 주소 복사로 진행하세요.
+              확장을 찾는 중… 없으면 QR·복사로 진행하세요.
             </div>
           </div>
 
@@ -64,7 +64,7 @@
           </div>
           <div id="meta"></div>
           <div class="note" style="margin-top:12px">
-            이 요청은 10분 뒤 만료됩니다. 지갑은 이 주소를 그대로 믿지 않고 컨트랙트에 직접 확인합니다.
+            10분 뒤 만료됩니다. 지갑은 이 주소를 믿지 않고 컨트랙트에 직접 확인합니다.
           </div>
         </div>
 
@@ -72,9 +72,9 @@
           <h3 style="margin-bottom:12px">진행</h3>
           <ol class="steps" id="steps">
             <li id="s1">공간과 아바타 주소를 고릅니다.</li>
-            <li id="s2">발급 요청을 만들어 QR 또는 주소를 받습니다.</li>
-            <li id="s3">지갑에서 요청을 열고 승인합니다(확장이 있으면 지갑 창이 바로 뜹니다). 영지식 증명이 만들어져 제출됩니다.</li>
-            <li id="s4">인증토큰이 발급되면 공간에 입장할 수 있습니다.</li>
+            <li id="s2">발급 요청을 만듭니다.</li>
+            <li id="s3">지갑에서 승인합니다. 영지식 증명이 만들어져 제출됩니다.</li>
+            <li id="s4">인증토큰이 발급되면 공간에 입장합니다.</li>
           </ol>
         </div>
       </div>
@@ -88,10 +88,10 @@
         </div>
         <div class="card">
           <div class="note">
-            <b style="color:var(--fg)">브라우저 확장</b>이 설치돼 있으면 <b style="color:var(--fg)">지갑으로 바로 보내기</b>가
-            나타납니다. 확장은 요청을 나르기만 하고, 승인과 서명은 데스크톱 지갑 창에서 이뤄집니다.
+            <b style="color:var(--fg)">확장</b>이 있으면 <b style="color:var(--fg)">지갑으로 바로 보내기</b>가 나타납니다.
+            승인은 데스크톱 지갑 창에서 합니다.
             <div id="extRow" hidden style="margin-top:8px">✓ 확장 감지됨</div>
-            <div style="margin-top:8px">확장이 없으면 <b style="color:var(--fg)">주소 복사</b>를 쓰세요. QR 은 모바일 지갑용입니다.</div>
+            <div style="margin-top:8px">없으면 <b style="color:var(--fg)">주소 복사</b>를 쓰세요. QR 은 모바일 지갑용입니다.</div>
           </div>
         </div>
       </div>

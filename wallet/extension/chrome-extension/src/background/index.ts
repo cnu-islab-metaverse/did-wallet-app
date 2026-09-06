@@ -100,12 +100,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-// 인증토큰 발급 요청 중계 — 확장은 요청을 나르기만 한다.
-// 요청 검증(컨트랙트에 직접 조회)과 승인 모달은 모두 데스크톱에서 이뤄지고, 확장은 결과만 받는다.
-//
-// 데스크톱은 승인 즉시 응답하고 발급은 뒤에서 이어간다. 그래도 사용자가 승인 버튼을 누르기까지
-// 수십 초가 걸릴 수 있는데, MV3 서비스워커는 유휴 상태로 두면 그 사이에 종료된다.
-// 응답을 기다리는 동안 핑을 보내 워커를 깨워 둔다.
+// 발급 요청 중계 — 확장은 나르기만 하고 검증·승인은 데스크톱이 한다.
+// 데스크톱은 승인 즉시 응답하지만 사용자가 누르기까지 수십 초가 걸릴 수 있고,
+// MV3 서비스워커는 유휴 상태로 두면 그 사이 종료된다. 핑으로 깨워 둔다.
 async function handlePassIssuance(message: any, sendResponse: (response: any) => void) {
   const keepAlive = setInterval(() => {
     nativeBridge.request('ping', {}, 3000).catch(() => {});

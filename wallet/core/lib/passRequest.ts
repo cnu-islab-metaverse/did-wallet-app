@@ -1,7 +1,5 @@
-// [작업] 검증자(메타버스 플랫폼)가 준 패스 발급 요청을 받아 검사한다.
-//        요청은 웹사이트가 준 데이터일 뿐이므로 그대로 믿지 않는다 — 컨트랙트에 직접 물어
-//        "그 패스 타입이 정말 등록돼 있는지·검증자가 무엇인지·유효기간이 얼마인지"를 확인하고,
-//        사용자에게는 사이트의 주장이 아니라 **체인이 말하는 것**을 보여준다.
+// [작업] 플랫폼이 준 발급 요청을 검사한다. 요청은 웹사이트가 준 데이터일 뿐이므로 믿지 않고
+//        컨트랙트에 직접 물어, 사이트의 주장이 아니라 체인이 말하는 것을 보여준다.
 // [결과] fetchPassRequest(입력) → { request, onChain, known, warnings }
 import { ethers } from 'ethers'
 import { getDeploymentConfig, PASS_TYPE } from '../config/deployment.config'

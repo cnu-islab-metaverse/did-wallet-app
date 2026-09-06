@@ -1,5 +1,5 @@
-// [작업] 데스크톱 지갑의 로컬 브리지 — 네이티브 호스트(크롬 확장)가 접속하는 사용자 로컬 파이프
-//        서버. 요청을 렌더러(공유 src/ 지갑 코어)로 위임하고 응답을 되돌린다. 키·승인은 데스크톱에만.
+// [작업] 데스크톱 지갑의 로컬 파이프 서버 — 네이티브 호스트(확장)가 접속한다.
+//        요청을 렌더러(core 지갑)로 위임하고 응답을 되돌린다. 키·승인은 데스크톱에만.
 // [결과] startWalletBridge(getWindow) 로 파이프 리슨. 확장 → 호스트 → 파이프 → 렌더러 → 응답.
 import net from 'node:net'
 import os from 'node:os'
@@ -32,7 +32,7 @@ function createDecoder(onMessage: (m: any) => void) {
   }
 }
 
-// 사용자 승인이 필요한 요청 — 모달이 다른 창 뒤에 뜨면 사용자가 못 보고 시간초과된다.
+// 승인이 필요한 요청 — 모달이 다른 창 뒤에 뜨면 못 보고 시간초과된다.
 const NEEDS_ATTENTION = new Set(['requestPassIssuance', 'requestVCIssuance'])
 
 export function startWalletBridge(getWindow: () => BrowserWindow | null): void {

@@ -1,7 +1,6 @@
-// [작업] 공통 vc.json → 회로 witness. vc 클레임(name·birthDate·university·residence·validUntil)을
-//        SMT 로 구성하고, 각 시나리오 회로가 먹는 입력 객체를 만든다. 서명(sign.mjs)·검증(verify.mjs)
-//        이 같은 SMT 구성을 공유하므로 root 가 일치한다. 나이는 저장하지 않고 회로가 birthDate 와
-//        현재날짜(currentDate)로 매번 계산 → 유효기간과 무관하게 상·하한 자동 현행화.
+// [작업] vc.json → 회로 witness. 클레임을 SMT 로 구성해 시나리오별 입력을 만든다.
+//        sign.mjs·verify.mjs 가 같은 구성을 쓰므로 root 가 일치한다.
+//        나이는 저장하지 않고 회로가 birthDate 와 currentDate 로 매번 계산한다.
 // [결과] buildWitness(vc) → { root, inclusions, currentDate, ... }; regionalInput / youthPassInput.
 import { buildEddsa, buildPoseidon, newMemEmptyTrie } from 'circomlibjs';
 

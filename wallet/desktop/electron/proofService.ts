@@ -1,9 +1,7 @@
-// [작업] 메인 프로세스 ZK 증명 생성기. VC 를 받아 witness 를 만들고 groth16 증명을 생성해
-//        온체인 mintPass 에 그대로 넣을 calldata 를 돌려준다.
-//        렌더러가 아니라 여기서 도는 이유: zkey 가 회로당 36MB 라 번들 불가이고(디스크에서 직접 읽는다),
-//        수 초가 걸리는 CPU 작업이라 UI 스레드를 막으면 안 되며, 키·승인이 이미 데스크톱에 있기 때문이다.
+// [작업] 메인 프로세스 ZK 증명 생성기. VC → witness → groth16 → mintPass calldata.
+//        메인에서 도는 이유: zkey 가 회로당 36MB 라 번들 불가이고, 수 초짜리 CPU 작업이라
+//        UI 스레드를 막으면 안 된다.
 // [결과] generateProof(scenario, vc) → { pA, pB, pC, pubSignals, currentDate, boundWallet }
-//        circuits/calldata.mjs 와 같은 절차·같은 산출물이다.
 import path from 'node:path'
 import fs from 'node:fs'
 import { app } from 'electron'

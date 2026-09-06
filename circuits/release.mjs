@@ -1,9 +1,6 @@
-// [작업] 회로 산출물을 컨트랙트 쪽으로 한 번에 내보낸다.
-//        (1) build/<name>/Verifier.sol → contract/src/<Name>Verifier.sol
-//        (2) 두 시나리오의 증명을 생성해 contract/test/fixtures/proofs.json 에 기록
-//        한 명령이 검증자와 픽스처를 동시에 만들므로 둘이 어긋날 수 없다. 지금까지 드리프트의
-//        원인은 Verifier.sol 상단의 "회로 변경 시 이 파일을 재복사한다"는 수동 지시였다.
-// [결과] 컨트랙트 소스 2개 갱신 + 추적 대상 픽스처 1개 갱신.
+// [작업] 회로 산출물을 컨트랙트로 내보낸다 — Verifier.sol 복사 + 픽스처 생성.
+//        한 명령이 둘을 함께 만들므로 어긋날 수 없다(드리프트의 원인은 수동 재복사 지시였다).
+// [결과] contract/src/<Name>Verifier.sol · contract/test/fixtures/proofs.json
 //   node release.mjs
 import * as snarkjs from 'snarkjs';
 import fs from 'fs';

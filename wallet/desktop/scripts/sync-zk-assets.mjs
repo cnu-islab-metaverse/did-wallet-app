@@ -1,9 +1,6 @@
-// [작업] 회로 자산을 데스크톱 앱으로 동기화한다.
-//        witness 빌더는 circuits/witness.mjs 를 "복사"한다 — 손으로 포팅하면 SMT 키·학교코드·시도코드가
-//        회로와 어긋나는 순간 증명이 조용히 검증 실패하기 때문이다(circuits/README 경고).
-//        wasm/zkey 는 36MB 급이라 복사하지 않고 경로만 확인한다(런타임에 원본을 읽는다).
-// [결과] electron/zk/witness.mjs 갱신 + 회로 산출물 존재 여부 보고. 원본이 없으면 경고만 하고 통과한다
-//        (회로를 빌드하지 않은 환경에서도 앱 빌드는 되어야 하므로).
+// [작업] 회로 자산을 데스크톱 앱으로 동기화한다. witness 빌더는 포팅하지 않고 복사한다 —
+//        어긋나면 증명이 조용히 검증 실패한다. wasm/zkey 는 36MB 급이라 경로만 확인한다.
+// [결과] electron/zk/witness.mjs 갱신 + 산출물 존재 보고. 원본이 없으면 경고만 하고 통과한다.
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
@@ -31,9 +28,8 @@ function syncWitness() {
   fs.mkdirSync(DST_DIR, { recursive: true })
   const before = fs.existsSync(DST_WITNESS) ? sha(DST_WITNESS) : null
   const header =
-    '// ⚠️ 자동 생성 — 직접 수정 금지. 원본: circuits/witness.mjs\n' +
-    '//    `yarn sync:zk` (predev/prebuild 에서 자동 실행) 가 원본을 그대로 복사한다.\n' +
-    '//    회로와 SMT 키·학교코드·시도코드가 어긋나면 증명이 검증 실패하므로 포팅하지 않고 복사한다.\n'
+    '// ⚠️ 자동 생성 — 직접 수정 금지. 원본: circuits/witness.mjs (yarn sync:zk)\n' +
+    '//    손으로 포팅하면 회로와 어긋나 증명이 조용히 실패한다. 그대로 복사한다.\n'
   fs.writeFileSync(DST_WITNESS, header + fs.readFileSync(SRC_WITNESS, 'utf8'))
   const after = sha(DST_WITNESS)
   console.log(before === after ? `[sync:zk] witness.mjs 최신 (${after})` : `[sync:zk] witness.mjs 갱신 → ${after}`)

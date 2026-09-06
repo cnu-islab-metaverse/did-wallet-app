@@ -1,7 +1,6 @@
-// [작업] 데스크톱 지갑 프로그램(네이티브 호스트 com.cnu.didwallet)과의 브리지. 확장은 키를 보관하지
-//        않는 씬클라이언트 — 모든 지갑 작업을 이 브리지로 데스크톱에 위임한다. MV3 서비스워커가
-//        잠들면 포트가 끊기므로 요청 시 지연 재연결한다.
-// [결과] request(method, params) → 데스크톱 응답. 프로그램 미설치/미실행 시 program-not-running 등 오류.
+// [작업] 데스크톱 지갑 프로그램(네이티브 호스트 com.cnu.didwallet)과의 브리지. 확장은 키를 갖지
+//        않고 모든 작업을 위임한다. MV3 서비스워커가 잠들면 포트가 끊기므로 요청 시 재연결한다.
+// [결과] request(method, params) → 데스크톱 응답. 미설치/미실행 시 program-not-running.
 
 const HOST = 'com.cnu.didwallet'
 

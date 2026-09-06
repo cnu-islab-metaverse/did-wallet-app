@@ -180,8 +180,8 @@ export const WalletShell: React.FC = () => {
   const [logoutAsk, setLogoutAsk] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
-  // 아직 실데이터에 연결되지 않은 화면(보유 SBT·활동 내역·연결된 서비스)은 dev 빌드에서만 목데이터를
-  // 보여준다. 배포 빌드에서는 빈 목록으로 시작해 사용자가 실제로 보유한 것만 나타난다. (Phase 4 에서 연결)
+  // 실데이터에 아직 연결되지 않은 화면(활동 내역·연결된 서비스)은 dev 빌드에서만 목데이터를 보여준다.
+  // 배포 빌드는 빈 목록으로 시작한다.
   const showMocks = isDevModeEnabled()
   const activity = showMocks ? ACTIVITY : []
   const connected = showMocks ? CONNECTED : []
@@ -273,9 +273,8 @@ export const WalletShell: React.FC = () => {
     })()
   }
 
-  // 요청 모달을 닫는다. 확장이 보낸 요청이면 결과를 돌려준다.
-  // 승인 시에는 발급을 기다리지 않고 곧바로 응답한다 — 확장(MV3 서비스워커)은
-  // 증명 생성과 트랜잭션 확정이 끝날 때까지 살아 있지 않다.
+  // 요청 모달을 닫고, 확장이 보낸 요청이면 결과를 돌려준다. 승인 시 발급을 기다리지 않는다 —
+  // 확장(MV3 서비스워커)이 트랜잭션 확정까지 살아 있지 않다.
   const settleRequest = (approved: boolean) => {
     const r = checked
     try { reqRespond?.(approved) } catch { /* 응답자 없음 */ }
@@ -490,7 +489,7 @@ export const WalletShell: React.FC = () => {
             ))}
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--color-muted)', marginTop: 6 }}>
-            같은 발급기관·종류의 증명서는 재발급받아도 한 항목으로 묶입니다. 증명에는 현재 발급본이 쓰입니다.
+            재발급받아도 한 항목으로 묶입니다. 증명에는 현재 발급본이 쓰입니다.
           </div>
         </div>
       )}
@@ -530,7 +529,7 @@ export const WalletShell: React.FC = () => {
       <div style={{ fontSize: 18, fontWeight: 800 }}>{v.t}</div>
       <div style={{ fontSize: 13, color: 'var(--color-muted)' }}>{v.issuer} · {v.status}</div>
       {v.contract && <div style={{ fontSize: 12.5, fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', wordBreak: 'break-all' }}>컨트랙트: {v.contract}</div>}
-      <p style={{ fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0' }}>Sepolia 체인에서 현 계정 주소로 조회된 <b>양도불가(SBT)</b> 인증토큰입니다. 메타버스 플랫폼에서 아바타 접근 자격으로 사용됩니다.</p>
+      <p style={{ fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0' }}>현 계정으로 조회된 <b>양도불가(SBT)</b> 인증토큰입니다. 플랫폼에서 아바타 접근 자격으로 쓰입니다.</p>
     </div>
   )
 
@@ -775,8 +774,8 @@ export const WalletShell: React.FC = () => {
                  <Button variant="primary" disabled={reqBusy || !reqInput.trim()} onClick={loadRequest}>{reqBusy ? '확인 중…' : '가져오기'}</Button></>}>
         <div style={{ display: 'grid', gap: 10 }}>
           <div style={{ fontSize: 13, color: 'var(--color-muted)' }}>
-            메타버스 플랫폼에서 발급 요청 주소를 복사하거나 QR 을 읽어 붙여넣으세요.
-            지갑이 그 컨트랙트에 직접 물어 내용을 확인한 뒤 보여줍니다.
+            플랫폼에서 요청 주소를 복사해 붙여넣으세요.
+            지갑이 그 컨트랙트에 직접 물어 확인한 뒤 보여줍니다.
           </div>
           <Field label="요청 주소 또는 JSON">
             <textarea value={reqInput} onChange={(e) => setReqInput(e.target.value)}
@@ -820,7 +819,7 @@ export const WalletShell: React.FC = () => {
               ))}
             </div>
             <div style={{ fontSize: 11.5, color: 'var(--color-muted)' }}>
-              승인하면 영지식 증명을 만들어 이 컨트랙트에 제출합니다. 증명서 원본은 전송되지 않습니다.
+              승인하면 영지식 증명을 만들어 제출합니다. 증명서 원본은 전송되지 않습니다.
             </div>
           </div>
         ) })()}
@@ -851,7 +850,7 @@ export const WalletShell: React.FC = () => {
       <Modal open={addingSbt} title="인증토큰(SBT) 추가" onClose={() => setAddingSbt(false)}
         footer={<><Button variant="ghost" onClick={() => setAddingSbt(false)}>취소</Button><Button variant="primary" onClick={addSbt} disabled={!sbtContract.trim()}>조회 후 추가</Button></>}>
         <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--color-muted)' }}>
-          인증토큰(SBT)은 자동 조회되지 않습니다. <b>발급 컨트랙트 주소</b>를 입력하면 <b>현 계정 주소</b>로 Sepolia 체인에서 보유 토큰을 조회해 추가합니다.
+          자동 조회되지 않습니다. <b>발급 컨트랙트 주소</b>를 넣으면 현 계정의 보유 토큰을 체인에서 찾아 추가합니다.
         </p>
         <div style={{ display: 'grid', gap: 12 }}>
           <Field label="발급 컨트랙트 주소" value={sbtContract} onChange={(e) => { setSbtContract(e.target.value); setSbtErr('') }} placeholder="0x…" />

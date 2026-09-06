@@ -1,6 +1,5 @@
 // [작업] 증명서(VC) 보관소 — 활성 계정 주소별로 storage 에 저장/로드.
-//        구조: { [lowercased address]: VC[] } 를 STORAGE_KEYS.savedVCs 아래 단일 맵으로.
-//        같은 자격증명을 재발급받으면 새 항목이 아니라 "이력"으로 쌓인다(vcLineage 로 묶음).
+//        구조는 { [소문자 주소]: VC[] } 단일 맵. 재발급분은 새 항목이 아니라 이력으로 쌓인다.
 // [결과] getVCs / addVC / removeVC / seedVCsIfEmpty + 안정 id(vcId) + 이력 묶음(groupVCs).
 import { storageAdapter } from './storageAdapter'
 import { STORAGE_KEYS } from '../config/storage'

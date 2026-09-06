@@ -1,9 +1,6 @@
-// [작업] 개발용 시드 VC 에 "진짜" 발급기관 서명을 붙인다.
-//        demoVcs.ts 의 정의(DEMO_VCS_UNSIGNED)를 그대로 읽어 circuits 의 buildWitness + signVc 로
-//        SMT root 와 EdDSA 서명을 만들고 demoVcs.signed.json 으로 내보낸다.
-//        손으로 옮겨 적지 않으므로 클레임이 어긋날 일이 없다.
-// [결과] core/ui/shell/demoVcs.signed.json — 회로 검증을 통과하는 시드 VC.
-//        predev/prebuild 에서 자동 실행되므로 정의를 고치면 서명이 따라 갱신된다.
+// [작업] 개발용 시드 VC 에 진짜 발급기관 서명을 붙인다. demoVcs.ts 의 정의를 그대로 읽어
+//        circuits 의 buildWitness + signVc 로 root·서명을 만든다(손으로 옮기지 않는다).
+// [결과] core/ui/shell/demoVcs.signed.json. predev/prebuild 에서 자동 실행된다.
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'

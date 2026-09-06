@@ -1,7 +1,6 @@
-// [작업] 패스 발급 요청 — 검증자(메타버스 플랫폼)가 "무엇을 증명해 어디에 제출하라"를 지갑에 알린다.
-//        지갑이 컨트랙트 주소를 들고 있는 게 아니라, 요청이 대상을 지정한다.
-// [결과] createPassRequest(scenario) → 지갑이 가져가는 JSON. 지갑은 이 값을 그대로 믿지 않고
-//        contract·passType 을 온체인으로 다시 확인한 뒤 사용자에게 보여준다.
+// [작업] 패스 발급 요청 — 플랫폼이 "무엇을 증명해 어디에 제출하라"를 지갑에 알린다.
+//        지갑이 컨트랙트 주소를 들고 있는 게 아니라 요청이 대상을 지정한다.
+// [결과] createPassRequest(scenario) → 지갑이 가져가는 JSON. 지갑은 이를 온체인으로 다시 확인한다.
 import { randomUUID } from 'crypto';
 import { getDeploymentConfig, PASS_TYPE } from '../config/deployment.config';
 

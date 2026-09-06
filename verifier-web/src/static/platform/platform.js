@@ -1,6 +1,6 @@
-// [작업] 발급 화면 동작 — 발급 요청 생성(QR·복사·확장 전달) + 아바타의 인증토큰 보유 상태를 온체인에서 확인.
-//        보유 확인은 컨트랙트의 hasValidPass 를 직접 호출한다. 보유가 아니라 "유효한 보유" 를 묻는다.
-// [결과] 요청 만들기 → 지갑으로 전달(확장) 또는 QR/주소 → 승인 → 폴링이 발급을 감지해 입장 가능으로 바뀐다.
+// [작업] 발급 화면 — 요청 생성(QR·복사·확장 전달)과 보유 상태 확인.
+//        보유 확인은 hasValidPass 를 직접 호출한다. 보유가 아니라 "유효한 보유" 를 묻는다.
+// [결과] 요청 → 지갑 승인 → 폴링이 발급을 감지해 입장 가능으로 바뀐다.
 (() => {
   const $ = (id) => document.getElementById(id);
   const cfg = window.DEPLOYMENT_CONFIG;
@@ -30,8 +30,7 @@
   }
 
   // ── 브라우저 확장 연동 ──────────────────────────────────────────────────
-  // 확장은 요청을 나르기만 한다. 키도 승인도 데스크톱 지갑 프로그램에 있으므로,
-  // 확장이 있어도 사용자는 데스크톱 창에서 직접 승인해야 한다.
+  // 확장은 요청을 나르기만 한다. 승인은 데스크톱 지갑 창에서 이뤄진다.
   const ext = (() => {
     let detected = false;
     const waiters = new Map();
@@ -50,14 +49,14 @@
       return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
           waiters.delete(resType);
-          reject(new Error('지갑이 응답하지 않습니다. 데스크톱 지갑 프로그램이 실행 중인지 확인하세요.'));
+          reject(new Error('지갑이 응답하지 않습니다. 프로그램이 실행 중인지 확인하세요.'));
         }, timeoutMs);
         waiters.set(resType, (d) => { clearTimeout(timer); resolve(d); });
         window.postMessage({ type: reqType, ...payload }, '*');
       });
     }
 
-    // 확장은 content script 가 붙은 뒤에야 응답한다. 잠깐 동안 몇 번 물어본다.
+    // content script 가 붙은 뒤에야 응답한다. 잠깐 동안 몇 번 물어본다.
     let pings = 0;
     const pinger = setInterval(() => {
       if (detected || ++pings > 6) return clearInterval(pinger);
@@ -75,7 +74,7 @@
 
   function onDetected() {
     $('extRow').hidden = false;
-    $('extNote').textContent = '브라우저 확장이 감지되었습니다. 복사·QR 없이 지갑으로 바로 보낼 수 있습니다.';
+    $('extNote').textContent = '확장이 감지되었습니다. 지갑으로 바로 보낼 수 있습니다.';
     $('extNote').className = 'note ok-text';
     $('send').hidden = false;
     $('connect').hidden = false;
@@ -93,8 +92,7 @@
     for (let i = 1; i <= 4; i++) $('s' + i).classList.toggle('done', i <= n);
   }
 
-  // 발급까지는 증명 생성 + 트랜잭션 확정이 걸린다. 다만 무한히 돌지는 않는다 —
-  // 지갑 쪽에서 실패했을 수 있으므로 3분이 지나면 확인하라고 말한다.
+  // 지갑에서 실패했을 수 있으므로 3분에서 멈춘다.
   function startPolling() {
     if (poll) clearInterval(poll);
     if (!isAddr($('addr').value.trim())) return;
@@ -104,7 +102,7 @@
     poll = setInterval(() => {
       if (--left <= 0) {
         clearInterval(poll); poll = null;
-        setStatus('발급이 확인되지 않았습니다. 지갑 화면을 확인해 주세요.', 'warn');
+        setStatus('발급이 확인되지 않았습니다. 지갑 화면을 확인하세요.', 'warn');
         return;
       }
       void refreshHolding();
@@ -132,7 +130,7 @@
     }
   }
 
-  // 요청을 만들어 화면에 띄운다. 이미 만들어 둔 요청이 있으면 그대로 쓴다.
+  // 같은 시나리오로 이미 만든 요청이 있으면 그대로 쓴다.
   let currentReq = null;
   async function makeRequest() {
     const scenario = $('zone').value;
@@ -192,7 +190,7 @@
         if (!r.ok) throw new Error(r.error || '지갑에 전달하지 못했습니다');
         if (!r.accepted) { setStatus(r.error || '지갑에서 승인되지 않았습니다 (거절 또는 시간 초과)', 'bad'); markStep(2); return; }
 
-        // 데스크톱이 바인딩할 지갑주소를 알려준다 — 사용자가 직접 입력할 필요가 없다.
+        // 데스크톱이 바인딩할 주소를 알려주므로 직접 입력할 필요가 없다.
         if (r.address && isAddr(r.address)) {
           $('addr').value = r.address;
           localStorage.setItem('demo.avatarAddress', r.address);

@@ -1,7 +1,7 @@
 {
   "extensionDescription": {
     "description": "Extension description",
-    "message": "웹페이지의 인증토큰 발급 요청을 설치된 DID 지갑 프로그램으로 전달합니다. 키 보관과 승인은 지갑 프로그램에서 이뤄집니다."
+    "message": "웹페이지의 발급 요청을 데스크톱 DID 지갑으로 전달합니다."
   },
   "extensionName": {
     "description": "Extension name",

@@ -1,10 +1,8 @@
-// ⚠️ 자동 생성 — 직접 수정 금지. 원본: circuits/witness.mjs
-//    `yarn sync:zk` (predev/prebuild 에서 자동 실행) 가 원본을 그대로 복사한다.
-//    회로와 SMT 키·학교코드·시도코드가 어긋나면 증명이 검증 실패하므로 포팅하지 않고 복사한다.
-// [작업] 공통 vc.json → 회로 witness. vc 클레임(name·birthDate·university·residence·validUntil)을
-//        SMT 로 구성하고, 각 시나리오 회로가 먹는 입력 객체를 만든다. 서명(sign.mjs)·검증(verify.mjs)
-//        이 같은 SMT 구성을 공유하므로 root 가 일치한다. 나이는 저장하지 않고 회로가 birthDate 와
-//        현재날짜(currentDate)로 매번 계산 → 유효기간과 무관하게 상·하한 자동 현행화.
+// ⚠️ 자동 생성 — 직접 수정 금지. 원본: circuits/witness.mjs (yarn sync:zk)
+//    손으로 포팅하면 회로와 어긋나 증명이 조용히 실패한다. 그대로 복사한다.
+// [작업] vc.json → 회로 witness. 클레임을 SMT 로 구성해 시나리오별 입력을 만든다.
+//        sign.mjs·verify.mjs 가 같은 구성을 쓰므로 root 가 일치한다.
+//        나이는 저장하지 않고 회로가 birthDate 와 currentDate 로 매번 계산한다.
 // [결과] buildWitness(vc) → { root, inclusions, currentDate, ... }; regionalInput / youthPassInput.
 import { buildEddsa, buildPoseidon, newMemEmptyTrie } from 'circomlibjs';
 

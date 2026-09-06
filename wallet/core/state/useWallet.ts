@@ -1,7 +1,6 @@
-// [작업] 아바타(HD 계정) 관리 상태 훅 — hdWalletService 를 감싸 UI 에 상태/동작 제공.
-//        각 계정은 주소 + did:ethr(라벨). 생성/가져오기/언락/잠금/추가/전환/이름변경.
-//        개발 모드(import.meta.env.DEV)에서는 프리셋으로 자동 생성·언락(테스트 편의).
-// [결과] useWallet() → { status, accounts(각 did 포함), active, createWallet/importWallet/unlock/lock/... }
+// [작업] 아바타(HD 계정) 관리 훅 — hdWalletService 를 감싸 UI 에 상태/동작을 준다.
+//        각 계정은 주소 + did:ethr. 개발 모드에서는 프리셋으로 자동 생성·언락한다.
+// [결과] useWallet() → { status, accounts, active, createWallet/importWallet/unlock/lock/... }
 import { useCallback, useEffect, useState } from 'react'
 import { ethers } from 'ethers'
 import { hdWalletService } from '../lib/hdWalletService'

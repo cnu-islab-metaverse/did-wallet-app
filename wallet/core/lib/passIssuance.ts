@@ -1,10 +1,8 @@
-// [작업] 자격증명(VC) → ZK 증명 → 온체인 SBT 발급까지의 렌더러측 오케스트레이션.
-//        증명 생성 자체는 메인 프로세스(zkProve IPC)가 하고, 여기서는 VC 선택·시나리오 판정·
-//        서명자 준비·mintPass 트랜잭션 전송을 맡는다.
+// [작업] VC → ZK 증명 → 온체인 SBT 발급 오케스트레이션. 증명 생성은 메인 프로세스가 하고,
+//        여기서는 VC 선택·시나리오 판정·서명자 준비·mintPass 전송을 맡는다.
 // [결과] issuePass(vc) → { txHash, tokenId?, boundWallet, passType } (언락 상태에서만)
 //
-// 발급이 성립하려면 세 가지가 맞아야 한다(컨트랙트가 검사한다):
-//   1) 증명이 회로 검증을 통과      2) 호출자 == 증명에 묶인 지갑(A2)   3) 증명의 날짜가 오늘(KST)
+// 컨트랙트가 검사하는 것: 회로 검증 통과 · 호출자 == 증명에 묶인 지갑(A2) · 증명 날짜가 오늘(KST).
 import { ethers } from 'ethers'
 import { hdWalletService } from './hdWalletService'
 import { getContractInfo, getDeploymentConfig, PASS_TYPE } from '../config/deployment.config'

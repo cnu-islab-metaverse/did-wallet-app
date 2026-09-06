@@ -1,10 +1,8 @@
-// [작업] 발급기관 서명 — 샘플 VC 의 클레임을 SMT 로 구성해 root 를 만들고, 테스트 발급기관
-//        개인키로 EdDSA 서명해 그 결과를 VC 에 되기록한다. **개인키가 필요한 유일한 단계.**
-//        VC 마다 담는 클레임이 다르므로(주민등록증=거주, 졸업증명서=학적) 각각 root 가 다르다.
-// [결과] 각 VC 의 issuer.publicKey · proof.merkleRoot · proof.signature 를 채운다.
-//        (발급자 공개키는 scenarios/_registry.circom 의 issuerAx/Ay 와 일치해야 함.)
-//   node sign.mjs              모든 샘플 VC 서명
-//   node sign.mjs vc/resident.json   특정 파일만
+// [작업] 발급기관 서명 — 클레임으로 SMT root 를 만들고 EdDSA 서명해 VC 에 되기록한다.
+//        개인키가 필요한 유일한 단계. VC 마다 클레임이 달라 root 도 다르다.
+// [결과] issuer.publicKey · proof.merkleRoot · proof.signature 를 채운다.
+//        공개키는 scenarios/_registry.circom 의 issuerAx/Ay 와 일치해야 한다.
+//   node sign.mjs [vc/resident.json]
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
