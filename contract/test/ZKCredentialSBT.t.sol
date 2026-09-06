@@ -110,10 +110,9 @@ contract ZKCredentialSBTTest is Test {
         assertTrue(sbt.hasValidPass(holder, TYPE_RNU));
     }
 
-    // ── 위조 증명 거부 (이번 수정의 핵심 회귀 테스트) ────────────────────
-    // 수정 전 회로는 enabled_* 를 자유 입력으로 둬서, 자격증명 없이도 유효한 증명이
-    // 만들어졌고 배포된 검증자가 그것을 받아들였다. 수정된 회로의 검증자는 거부해야 한다.
-    function test_RevertWhen_ForgedProofFromBrokenCircuit() public {
+    // ── 자격증명 없이 만든 증명은 거부한다 ────────────────────────────
+    // enabled_* 를 꺼서 만든 증명(옛 회로 산출물). 지금 검증자는 통과시키면 안 된다.
+    function test_RevertWhen_ProofHasNoCredential() public {
         address attacker = address(uint160(forged.pub[1]));
         vm.prank(attacker);
         vm.expectRevert("Invalid proof");

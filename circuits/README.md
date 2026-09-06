@@ -96,8 +96,7 @@ one-hot 으로 검사한다(`_registry.circom`). 공개키 한 쌍(Ax,Ay)이 목
 ## ⚠️ 회로 작성 시 반드시 넣을 제약
 
 circomlib 의 `SMTVerifier`·`EdDSAPoseidonVerifier` 는 **스위치 입력을 그대로 신뢰한다.**
-이것을 제약하지 않으면 증명이 무의미해진다. 2026-09-06 에 실제로 이 문제로 취약점이 있었다
-(→ `../SECURITY.md`).
+이것을 제약하지 않으면 증명이 무의미해진다.
 
 ```circom
 enabled_<claim> === 1;              // 0 이면 검사가 통째로 꺼진다
@@ -149,4 +148,3 @@ phase-1 Powers of Tau 는 **1인 로컬 = 데모용**. 프로덕션은 검증된
 ## 관련
 
 - `../contract` — 검증자와 발급 컨트랙트. `release.mjs` 가 이쪽으로 내보낸다.
-- `../SECURITY.md` — 2026-09-06 회로 취약점 분석과 수정 내역.

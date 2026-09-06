@@ -58,8 +58,8 @@
 
 | 요소 | 상태 | 비고 |
 |---|---|---|
-| ZK 회로 (`circuits/`) | **완료** | 기관별 샘플 VC(주민등록증·졸업증명서) → 서명 → 증명·검증 완결. 공개신호 `[currentDate, walletAddress]`. 2026-09-06 건전성 취약점 수정([SECURITY.md](SECURITY.md)) |
-| 온체인 컨트랙트 (`contract/`) | **Sepolia 배포됨 (v2)** | 범용 `ZKCredentialSBT` 1개 + 검증자를 패스 타입으로 등록. `forge test` **19건** 통과(위조 증명 거부 회귀 테스트 포함) |
+| ZK 회로 (`circuits/`) | **완료** | 기관별 샘플 VC(주민등록증·졸업증명서) → 서명 → 증명·검증 완결. 공개신호 `[currentDate, walletAddress]` |
+| 온체인 컨트랙트 (`contract/`) | **Sepolia 배포됨 (v2)** | 범용 `ZKCredentialSBT` 1개 + 검증자를 패스 타입으로 등록. `forge test` **19건** 통과(잘못된 증명 거부 테스트 포함) |
 | 발급기관 앱 (`issuer-web`/`cnu-issuer-web`) | **회로 연동 완료** | 양쪽 `services/vcsign.ts` 가 `circuits/witness.mjs` 와 동일한 SMT 구성 + EdDSA 서명을 수행하고 `issue.ts` 발급 흐름에 배선됨 |
 | `verifier-web` `/submit-vp` | **비-ZK 스텁 (미사용 경로)** | VC 의 거주지를 **평문 문자열 매칭**할 뿐 `groth16.verify` 를 호출하지 않는다. 지갑이 직접 발급하게 되면서 이 경로는 쓰이지 않는다 — 실검증 전환 또는 역할 재정의 필요 |
 | 지갑 증명 모듈 (`wallet/`) | **구현 완료** | 메인 프로세스에서 `fullProve` → `mintPass` 직접 호출. 지갑에서 온체인 발급 성공 확인 |
@@ -73,7 +73,7 @@
 | `YouthPassVerifier` | `0x8Ae87F8BCdaF4191891e596c5bb43C8c4d5Fdba9` (passType 1, 365일) |
 | `RegionalUnivVerifier` | `0x4bDEb1F0B97d976CD9DCEd7A51127f132a479553` (passType 2, 무기한) |
 
-v1(`0xF66B3b93…`)은 회로 취약점으로 폐기했다 — [SECURITY.md](SECURITY.md).
+v1(`0xF66B3b93…`)·v2(`0x11AbB46d…`)는 회로가 갱신되어 폐기했다.
 
 ### A2 바인딩이 보장하는 것
 
@@ -82,7 +82,7 @@ v1(`0xF66B3b93…`)은 회로 취약점으로 폐기했다 — [SECURITY.md](SEC
 
 **자격증명(VC) 자체는 소지자 토큰이다.** `walletAddress` 는 서명된 데이터에 들어 있지 않으므로,
 VC 파일을 입수한 사람은 자기 주소로 새 증명을 만들 수 있다. 이는 발급 시점에 발급기관이
-지갑주소를 모르게 하는 프라이버시 설계의 대가다. 홀더 바인딩 방안은 SECURITY.md 참고.
+지갑주소를 모르게 하는 프라이버시 설계의 대가다. 홀더 키 바인딩은 향후과제다.
 
 ## 개발 / 실행
 

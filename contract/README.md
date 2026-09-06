@@ -38,7 +38,7 @@
 
 1. `verifier.verifyProof(...)` — 해당 패스 타입에 등록된 회로 검증자
 2. `msg.sender == walletAddress` — **제출자 바인딩(A2)**. 도난 **VP**(증명)를 다른 계정에서 쓰지 못하게 막는다.
-   VC 자체는 소지자 토큰이라는 점은 별개다 — `../SECURITY.md` 참고
+   VC 자체는 소지자 토큰이라는 점은 별개다.
    (국내특허 2025-1-328-KR「블록체인 지갑 주소 바인딩 기반 영지식 증명 인증 시스템」)
 3. `currentDate ≈ block.timestamp`(KST 변환, 어제까지 허용) — 과거 날짜로 나이·만료를 우회하지 못하게
 
@@ -99,7 +99,7 @@ forge script script/DeployZKCredentialSBT.s.sol:DeployZKCredentialSBT \
 > 배포 팩토리가 되어 소유권이 팩토리로 잡히고 `registerPassType` 을 영영 호출할 수 없다.
 > 그래서 소유자를 생성자 인자로 명시한다.
 
-**Sepolia v3 (2026-09-06)** — v1(`0xF66B3b93…`)은 회로 취약점으로 폐기(`../SECURITY.md`).
+**Sepolia v3 (2026-09-06)** — v1(`0xF66B3b93…`)·v2(`0x11AbB46d…`)는 폐기.
 
 | | 주소 |
 |---|---|

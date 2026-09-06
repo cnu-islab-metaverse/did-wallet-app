@@ -119,13 +119,13 @@ async function main() {
     console.log(`${Date.now() - t0}ms · holder=${out.scenarios[name].holder} · date=${out.scenarios[name].currentDate}`);
   }
 
-  // 수정 전 회로에서 자격증명 없이 만들어진 위조 증명. 재생성할 수 없으므로
+  // 자격증명 없이 만든 증명(옛 회로 산출물). 재생성할 수 없으므로
   // 기존 픽스처에 있으면 그대로 보존한다. 새 검증자가 이걸 거부하는지 테스트한다.
   if (fs.existsSync(FIXTURE)) {
     const prev = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
     if (prev.forgedYouthPass) {
       out.forgedYouthPass = prev.forgedYouthPass;
-      console.log('[release] forgedYouthPass 보존(재생성 불가 — 수정 전 회로 산출물)');
+      console.log('[release] forgedYouthPass 보존(재생성 불가 — 옛 회로 산출물)');
     }
   }
 
