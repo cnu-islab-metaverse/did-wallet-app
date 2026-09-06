@@ -4,3 +4,7 @@ node_modules/
 # generated build artifacts (regenerate with `yarn build <name>`)
 build/
 ptau/
+
+# Groth16 셋업 산출물 보관(225MB). 재생성 불가라 지우면 안 되지만 git 에 넣기엔 크다.
+# 검증키는 verification-keys/ 에 별도로 추적한다.
+archive/

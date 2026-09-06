@@ -76,13 +76,35 @@ template RegionalNationalUniv(nLevels) {
     eddsa.S <== S;
     eddsa.M <== root;
 
+    // ── [보안] 회로 스위치 못박기 ──────────────────────────────────────
+    // 이 세 종류가 자유 입력으로 남아 있으면 증명이 무의미해진다:
+    //   enabled_* = 0  → SMT·EdDSA 검사가 통째로 꺼진다(자격증명 없이 증명 생성 가능)
+    //   fnc_*     = 1  → 비포함 모드로 바뀌어 value 를 자유롭게 고를 수 있다
+    //   key_*     자유 → 클레임 슬롯이 서로 바뀌어 쓰인다
+    // oldKey/oldValue/isOld0 은 fnc=0·enabled=1 이면 circomlib 내부에서 무력화되므로 제약하지 않는다.
+    enabled_university === 1;
+    fnc_university     === 0;
+    key_university     === claimKeyUniversity();
+    enabled_validUntil === 1;
+    fnc_validUntil     === 0;
+    key_validUntil     === claimKeyValidUntil();
+    enabled_eddsa === 1;
+
     // 발급기관 화이트리스트: 서명자 공개키가 registry 의 정당 발급기관인지 검증.
     Ax === issuerAx();
     Ay === issuerAy();
 
-    // walletAddress 는 조건식에 안 쓰이므로 더미 제약으로 회로에 고정(최적화 제거 방지). A2 바인딩용.
-    signal waSquared;
-    waSquared <== walletAddress * walletAddress;
+    // walletAddress 를 160비트로 못박는다. 컨트랙트가 address(uint160(pubSignals[1])) 로
+    // 절단하므로, 상위 비트에 임의 값이 실리지 않는 정규 인코딩을 강제한다(A2 바인딩).
+    component waBits = Num2Bits(160);
+    waBits.in <== walletAddress;
+
+    // 비교기 입력 범위 보증(방어 심화). 서명된 값이라 현재 악용 경로는 없지만,
+    // 범위를 벗어난 값이 들어오면 조용히 틀린 답이 아니라 증명 불가가 되게 한다.
+    component cdBits = Num2Bits(32);
+    cdBits.in <== currentDate;
+    component vuBits = Num2Bits(32);
+    vuBits.in <== value_validUntil;
 
     // 멤버십: 학교코드가 registry 지방거점국립대 목록 중 하나와 일치 (유일 → 합은 0/1)
     var N = regionalUnivCount();

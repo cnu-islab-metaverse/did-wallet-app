@@ -31,3 +31,11 @@ function daejeonCode() { return 30; }
 // 지역청년 나이 기준(법적 청년): 만 19세 이상 34세 이하.
 function youthMinAge() { return 19; }
 function youthMaxAge() { return 34; }
+
+// SMT 클레임 슬롯 번호 — witness.mjs 의 CLAIM_KEY 와 반드시 일치해야 한다.
+// 회로가 key_* 를 이 값으로 못박아, 클레임 슬롯이 서로 바뀌어 쓰이는 것을 막는다.
+// (예: 대학코드 30(충북대) 을 거주 슬롯에 넣으면 대전 시도코드 30 과 같아진다.)
+function claimKeyBirthDate() { return 1; }
+function claimKeyResidence() { return 2; }
+function claimKeyUniversity() { return 3; }
+function claimKeyValidUntil() { return 4; }
