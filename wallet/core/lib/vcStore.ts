@@ -46,15 +46,24 @@ export function vcId(vc: any): string {
 }
 
 /**
- * 재발급본을 묶는 계보 키 = 발급기관 + 증명서 종류.
- * 예) 행정안전부의 ResidentRegistrationCredential 은 몇 번을 재발급받아도 한 계보다.
+ * 재발급본을 묶는 계보 키 = 발급기관 + 증명서 종류 + 세부 구분.
+ *
+ * 세부 구분이 필요한 이유: 한 발급기관이 같은 VC 타입으로 성격이 다른 증명서를 낸다.
+ * 충남대의 재학증명서와 졸업증명서는 둘 다 UniversityAcademicCredential 이지만 서로
+ * 재발급본이 아니다. 이걸 묶으면 한쪽이 다른 쪽의 이력으로 숨어버린다.
+ * (만료된 재학증명서가 졸업증명서 뒤로 사라지던 실제 버그.)
  */
 export function vcLineage(vc: any): string {
   const iss = vc?.issuer
   const issuer = typeof iss === 'string' ? iss : (iss?.id ?? iss?.name ?? '?')
   const types: string[] = Array.isArray(vc?.type) ? vc.type : [vc?.type].filter(Boolean)
   const specific = types.find((t) => t && t !== 'VerifiableCredential') ?? 'VerifiableCredential'
-  return `${issuer}::${specific}`
+  const s = vc?.credentialSubject ?? {}
+  // 같은 타입 안에서 증명서를 구별하는 필드. 값이 바뀌면 다른 증명서로 본다.
+  const variant = [s.status, s.degree, s.certificate, s.qualification?.qualificationName, s.licenseType]
+    .filter((v) => v != null)
+    .join('|')
+  return variant ? `${issuer}::${specific}::${variant}` : `${issuer}::${specific}`
 }
 
 /** 발급 시점(최신 우선 정렬용). 값이 없으면 0. */
