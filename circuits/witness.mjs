@@ -163,6 +163,13 @@ export function youthPassInput(w, sig) {
 }
 
 // 시나리오 이름 → 입력 빌더
+// 시나리오별 기본 샘플 VC. 각 회로가 요구하는 클레임만 담은 현실적인 증명서를 쓴다
+// (하나의 VC 가 거주·학적을 동시에 담으면 대학이 거주를 증명하는 그림이 된다).
+export const SCENARIO_VC = {
+  youth_pass: 'vc/resident.json',              // 행정안전부 주민등록증
+  regional_national_univ: 'vc/diploma.json',   // 충남대 졸업증명서
+};
+
 export const SCENARIO_INPUT = {
   regional_national_univ: regionalInput,
   youth_pass: youthPassInput,

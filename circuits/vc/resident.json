@@ -3,14 +3,14 @@
     "https://www.w3.org/ns/credentials/v2",
     "https://www.w3.org/ns/credentials/examples/v2"
   ],
-  "id": "demo-diploma-1",
+  "id": "https://www.mois.go.kr/credentials/1001",
   "type": [
     "VerifiableCredential",
-    "UniversityDiplomaCredential"
+    "ResidentRegistrationCredential"
   ],
   "issuer": {
-    "id": "https://cnu.ac.kr/registrar",
-    "name": "충남대학교",
+    "id": "https://www.mois.go.kr",
+    "name": "행정안전부",
     "publicKey": {
       "Ax": "13277427435165878497778222415993513565335242147425444199013288855685581939618",
       "Ay": "13622229784656158136036771217484571176836296686641868549125388198837476602820"
@@ -18,30 +18,25 @@
   },
   "issuanceDate": "2025-10-01T00:00:00.000Z",
   "validFrom": "2025-10-01T00:00:00.000Z",
-  "validUntil": "2030-10-01T00:00:00.000Z",
+  "validUntil": null,
   "credentialSubject": {
     "id": "did:ethr:0x2e72f6b535B0cAd2c6C1acFE90cE269a443352e1",
     "walletAddress": "0x2e72f6b535B0cAd2c6C1acFE90cE269a443352e1",
     "name": "홍길동",
     "birthDate": "1998-03-10",
     "sex": "male",
-    "studentId": "201612345",
-    "university": "충남대학교",
-    "major": "컴퓨터공학과",
-    "degree": "학사",
-    "graduationDate": "2020-02-15",
     "residentialAddress": "대전광역시 유성구 대학로 99"
   },
   "proof": {
     "type": "BabyJubJubSMTSignature2024",
     "created": "2025-10-01T00:00:00.000Z",
-    "proofPurpose": "verificationMethod",
-    "verificationMethod": "https://cnu.ac.kr/registrar/keys/1",
-    "merkleRoot": "20363330878187031605301389362059176132684987900929625905182356534345129171621",
+    "proofPurpose": "assertionMethod",
+    "verificationMethod": "https://www.mois.go.kr/keys/1",
+    "merkleRoot": "2229927239175412112178257051348520275321841153868038126346537430133964650780",
     "signature": {
-      "R8x": "6982115955613260617706315035650958129243056739213720978511687484826767983575",
-      "R8y": "18065689687027294125496772697131181669343445513774641673748588701898402286081",
-      "S": "2227552685325255284974507963433737700669266811101562914994600620930347466855"
+      "R8x": "19928205957615226726724150093811362134133050311044099087157505319478117796436",
+      "R8y": "4952161375139853752739118864470721326515664711994354246257626064355879181576",
+      "S": "1596811399358464933449755139865203251368287276203409602908006553000622448803"
     }
   }
 }

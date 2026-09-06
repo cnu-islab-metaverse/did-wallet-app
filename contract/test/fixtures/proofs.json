@@ -1,0 +1,77 @@
+{
+  "note": "circuits/release.mjs 자동 생성. 직접 수정하지 말 것. Groth16 증명은 생성할 때마다 바이트가 달라지므로 diff 가 항상 발생한다.",
+  "scenarios": {
+    "youth_pass": {
+      "passType": 1,
+      "sourceVc": "vc/resident.json",
+      "holder": "0x2e72f6b535b0cad2c6c1acfe90ce269a443352e1",
+      "currentDate": 20260906,
+      "warpTs": 1788663600,
+      "pA": [
+        "0x19a73756dccc7e4ba0cdcd99b0badf2dd566a71d012ca7d8f85b74b8ad42628a",
+        "0x065415dee18f6a9b2ea52020d4c21109c18b900a452479fa7c083fbe1134b8db"
+      ],
+      "pBFlat": [
+        "0x0299ec67c9648587cec39fc2470978f8c7ebf78cce9c690f0ec7f43a7a09ca00",
+        "0x2176e2bf8dcc78c85ac47065626685483efcb34563c5510a6561e5bc4db863c0",
+        "0x2f99266d4cbb870fb3a38d462d9f9da72b6a3db5324a58b0fa0cfc106a33ccc2",
+        "0x1a857bc146ee8a565c79563767bd296ca8c56ebd3608bf95750d9dabafeec523"
+      ],
+      "pC": [
+        "0x2e3ec64f966a87df887eb04bd2d48e309c94f8e070ad61da9cdd3762fd8e4356",
+        "0x063f6aa209e8430059562aa860cd6b5720a718d2c1eade814fb8c115aeff4ddc"
+      ],
+      "pubSignals": [
+        "0x000000000000000000000000000000000000000000000000000000000135282a",
+        "0x0000000000000000000000002e72f6b535b0cad2c6c1acfe90ce269a443352e1"
+      ]
+    },
+    "regional_national_univ": {
+      "passType": 2,
+      "sourceVc": "vc/diploma.json",
+      "holder": "0x2e72f6b535b0cad2c6c1acfe90ce269a443352e1",
+      "currentDate": 20260906,
+      "warpTs": 1788663600,
+      "pA": [
+        "0x2ed7bbe9b9427c26c46b022ec5a8de316c6370d0ae5f56e75ec199c70f24c8bf",
+        "0x0b466cd3f99b21495b02e33c26b775dad1281c6f149334069b28c6399f202313"
+      ],
+      "pBFlat": [
+        "0x2143dc3a35872f74545c93a5bb344fc00d67b34dc7f65a075ce716ea2ae1a135",
+        "0x282ee246013b7c691455162fc8ded4b6ac942947a3e9e10ea8d238a106861baf",
+        "0x27fbbca1532884769a64f410b35a55b28f18a031199e9ae27528896bb490c497",
+        "0x2e338bca2493205a7d468c9ac1db30fd8c7c0a1025885e9c2d7a228b263f98e2"
+      ],
+      "pC": [
+        "0x211fd746ff5bca6a694f99fc4a04a83c66528af2c2a3ac845c9cd15a432f29a8",
+        "0x01e37f305867b19e0e41046c796fce05ed3c2500c02494e8a9ee4802ebee2b9d"
+      ],
+      "pubSignals": [
+        "0x000000000000000000000000000000000000000000000000000000000135282a",
+        "0x0000000000000000000000002e72f6b535b0cad2c6c1acfe90ce269a443352e1"
+      ]
+    }
+  },
+  "forgedYouthPass": {
+    "note": "수정 전 회로(enabled_* 자유 입력)에서 자격증명 없이 만든 위조 증명. 재생성 불가 — 그 zkey 는 폐기됐다. 새 검증자가 이것을 거부해야 한다.",
+    "attacker": "0x000000000000000000000000000000000000dEaD",
+    "pA": [
+      "0x1a0dc1bf2465473eeb8ff971ac58b577b6542217b339065518bd1a79294b2bb0",
+      "0x02325ba05eb1a546ea8a1d6df409bbed695c571f5d3d3aeb4da283679741a26e"
+    ],
+    "pBFlat": [
+      "0x251778e70ed6f10814a1f392d0f53d460a54bc4526e28995858189fc97c11142",
+      "0x067b8b8302a9a5b73d0f08e99212989ea391620c3bcde3f5d652855cf192378b",
+      "0x24f7dcb156aea251e0e269b219c04781895cc21c698a65e9156f2e899aa9360c",
+      "0x1dde0ec1c1ec7df2df76174f6c8f08e7195781f12fedd83432a3141af5c85410"
+    ],
+    "pC": [
+      "0x0249a85450b038c97eb17fabf5775bdee14d223a5b868d21958d3dd19939fc5a",
+      "0x1cb5de52e7c4c3871fe1cd510fde8c1f2c457e5661a2628d2ea87c7e3dda63e0"
+    ],
+    "pubSignals": [
+      "0x000000000000000000000000000000000000000000000000000000000135282a",
+      "0x000000000000000000000000000000000000000000000000000000000000dead"
+    ]
+  }
+}

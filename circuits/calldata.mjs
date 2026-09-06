@@ -7,7 +7,7 @@ import * as snarkjs from 'snarkjs';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { buildWitness, sigFromVc, SCENARIO_INPUT } from './witness.mjs';
+import { buildWitness, sigFromVc, SCENARIO_INPUT, SCENARIO_VC } from './witness.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -21,7 +21,10 @@ const OUT = path.join(ROOT, 'build', name);
 const WASM = path.join(OUT, `${name}_js`, `${name}.wasm`);
 const ZKEY = path.join(OUT, `${name}_final.zkey`);
 const VKEY = path.join(OUT, 'verification_key.json');
-const VC_PATH = path.join(ROOT, 'vc.json');
+// 시나리오별 샘플 VC. --vc 로 재지정 가능.
+const vcArg = args.indexOf('--vc')
+const VC_REL = vcArg >= 0 ? args[vcArg + 1] : (SCENARIO_VC[name] ?? 'vc.json')
+const VC_PATH = path.join(ROOT, VC_REL);
 
 function die(msg) {
   console.error(`[calldata] ${msg}`);

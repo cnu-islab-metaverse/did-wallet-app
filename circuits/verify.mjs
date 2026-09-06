@@ -6,7 +6,7 @@ import * as snarkjs from 'snarkjs';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { buildWitness, sigFromVc, SCENARIO_INPUT } from './witness.mjs';
+import { buildWitness, sigFromVc, SCENARIO_INPUT, SCENARIO_VC } from './witness.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -16,7 +16,10 @@ const WASM = path.join(OUT, `${name}_js`, `${name}.wasm`);
 const ZKEY = path.join(OUT, `${name}_final.zkey`);
 const VKEY = path.join(OUT, 'verification_key.json');
 const SRC = path.join(ROOT, 'scenarios', `${name}.circom`);
-const VC_PATH = path.join(ROOT, 'vc.json');
+// 시나리오마다 필요한 클레임이 다르므로 각각의 샘플 VC 를 쓴다. --vc 로 재지정 가능.
+const vcArg = process.argv.indexOf('--vc');
+const VC_REL = vcArg >= 0 ? process.argv[vcArg + 1] : (SCENARIO_VC[name] ?? 'vc.json');
+const VC_PATH = path.join(ROOT, VC_REL);
 
 // scenarios/<name>.circom 헤더의 "// [작업] …" 설명 줄들을 뽑아온다.
 function scenarioDesc(p) {
