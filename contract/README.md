@@ -99,13 +99,13 @@ forge script script/DeployZKCredentialSBT.s.sol:DeployZKCredentialSBT \
 > 배포 팩토리가 되어 소유권이 팩토리로 잡히고 `registerPassType` 을 영영 호출할 수 없다.
 > 그래서 소유자를 생성자 인자로 명시한다.
 
-**Sepolia v2 (2026-09-06)** — v1(`0xF66B3b93…`)은 회로 취약점으로 폐기(`../SECURITY.md`).
+**Sepolia v3 (2026-09-06)** — v1(`0xF66B3b93…`)은 회로 취약점으로 폐기(`../SECURITY.md`).
 
 | | 주소 |
 |---|---|
-| `ZKCredentialSBT` | `0x11AbB46d6099D541e544Ac8bB38820046de6D797` |
-| `YouthPassVerifier` | `0x0d0ddb95EfB56b9770Da92B937b3303154484318` |
-| `RegionalUnivVerifier` | `0x956F42f94ECDf9f9CD20086E7AFEB88572246883` |
+| `ZKCredentialSBT` | `0x3729988Ae1Fa37702DB5f7CD06a5836cb113ac31` |
+| `YouthPassVerifier` | `0x8Ae87F8BCdaF4191891e596c5bb43C8c4d5Fdba9` |
+| `RegionalUnivVerifier` | `0x4bDEb1F0B97d976CD9DCEd7A51127f132a479553` |
 
 ### 배포 후 갱신 필요
 

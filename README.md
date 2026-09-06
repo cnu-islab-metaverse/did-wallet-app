@@ -65,13 +65,13 @@
 | 지갑 증명 모듈 (`wallet/`) | **구현 완료** | 메인 프로세스에서 `fullProve` → `mintPass` 직접 호출. 지갑에서 온체인 발급 성공 확인 |
 | 메타버스 연동 (`metaverse-world`) | **연결됨** | 씬이 `hasValidPass(보유자, passType)` 로 **유효한** 보유만 인정(만료 구분) |
 
-## 배포 (Sepolia, 2026-09-06 · v2)
+## 배포 (Sepolia, 2026-09-06 · v3)
 
 | | 주소 |
 |---|---|
-| `ZKCredentialSBT` | `0x11AbB46d6099D541e544Ac8bB38820046de6D797` |
-| `YouthPassVerifier` | `0x0d0ddb95EfB56b9770Da92B937b3303154484318` (passType 1, 365일) |
-| `RegionalUnivVerifier` | `0x956F42f94ECDf9f9CD20086E7AFEB88572246883` (passType 2, 무기한) |
+| `ZKCredentialSBT` | `0x3729988Ae1Fa37702DB5f7CD06a5836cb113ac31` |
+| `YouthPassVerifier` | `0x8Ae87F8BCdaF4191891e596c5bb43C8c4d5Fdba9` (passType 1, 365일) |
+| `RegionalUnivVerifier` | `0x4bDEb1F0B97d976CD9DCEd7A51127f132a479553` (passType 2, 무기한) |
 
 v1(`0xF66B3b93…`)은 회로 취약점으로 폐기했다 — [SECURITY.md](SECURITY.md).
 

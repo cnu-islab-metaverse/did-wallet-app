@@ -90,9 +90,29 @@ template YouthPass(nLevels) {
     key_birthDate     === claimKeyBirthDate();
     enabled_eddsa === 1;
 
-    // 발급기관 화이트리스트
-    Ax === issuerAx();
-    Ay === issuerAy();
+    // ── 발급기관 화이트리스트 ────────────────────────────────────────
+    // 거주·생년월일은 신분증 발급기관(행정안전부·경찰청)만 증명해줄 수 있다.
+    // 공개키 한 쌍(Ax,Ay)이 목록의 같은 인덱스에서 둘 다 일치해야 한다. 좌표 하나만 보면
+    // 서로 다른 기관의 좌표를 섞어 맞추는 경우를 배제하지 못한다.
+    var nIss = youthIssuerCount();
+    var issAx[nIss] = youthIssuerAx();
+    var issAy[nIss] = youthIssuerAy();
+    component okAx[nIss];
+    component okAy[nIss];
+    signal bothIss[nIss];
+    signal issAcc[nIss + 1];
+    issAcc[0] <== 0;
+    for (var i = 0; i < nIss; i++) {
+        okAx[i] = IsEqual();
+        okAx[i].in[0] <== Ax;
+        okAx[i].in[1] <== issAx[i];
+        okAy[i] = IsEqual();
+        okAy[i].in[0] <== Ay;
+        okAy[i].in[1] <== issAy[i];
+        bothIss[i] <== okAx[i].out * okAy[i].out;
+        issAcc[i + 1] <== issAcc[i] + bothIss[i];
+    }
+    issAcc[nIss] === 1;
 
     // walletAddress 를 160비트로 못박는다. 컨트랙트가 address(uint160(pubSignals[1])) 로
     // 절단하므로, 상위 비트에 임의 값이 실리지 않는 정규 인코딩을 강제한다(A2 바인딩).

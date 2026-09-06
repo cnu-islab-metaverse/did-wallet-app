@@ -39,7 +39,11 @@ const SIDO: { code: number; p: string[] }[] = [
 // 클레임 → SMT 고정 키 (circuits/witness.mjs CLAIM_KEY 와 동일)
 const CLAIM_KEY: Record<string, number> = { name: 0, birthDate: 1, residence: 2, university: 3, validUntil: 4 }
 
-// 고정 테스트 발급기관 개인키 (circuits/witness.mjs ISSUER_PRV 와 동일). 데모 전용.
+// 이 발급기관의 개인키 — 행정안전부(주민등록증)·경찰청(운전면허증) 발급기관.
+// ★ circuits/witness.mjs 의 ISSUERS.mois.prv 와 동일해야 하고, 그 공개키가
+//    circuits/scenarios/_registry.circom 의 시나리오별 화이트리스트에 들어 있어야 한다.
+//    기관마다 키가 다르므로, 이 앱이 발급한 VC 로는 이 기관이 증명해줄 수 있는 사실만 증명된다.
+//    데모 전용 고정값.
 export const ISSUER_PRV = Buffer.from(
   '0001020304050607080900010203040506070809000102030405060708090001',
   'hex',

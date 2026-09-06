@@ -30,12 +30,12 @@ const DEPLOYMENT_CONFIGS = {
   },
   sepolia: {
     environment: 'sepolia',
-    // 2026-09-06 배포(v2 — 회로 건전성 수정본). 소유자 0xdDb968E5D31fD578115096f1e2BE33Bdb7F348B2
+    // 2026-09-06 배포(v3 — 발급기관별 키 분리). 소유자 0xdDb968E5D31fD578115096f1e2BE33Bdb7F348B2
     contract: {
-      zkCredentialSBT: '0x11AbB46d6099D541e544Ac8bB38820046de6D797',
+      zkCredentialSBT: '0x3729988Ae1Fa37702DB5f7CD06a5836cb113ac31',
       verifiers: {
-        youthPass: '0x0d0ddb95EfB56b9770Da92B937b3303154484318',
-        regionalUniv: '0x956F42f94ECDf9f9CD20086E7AFEB88572246883',
+        youthPass: '0x8Ae87F8BCdaF4191891e596c5bb43C8c4d5Fdba9',
+        regionalUniv: '0x4Bdeb1F0b97d976cD9Dced7a51127f132A479553',
       },
     },
     network: {

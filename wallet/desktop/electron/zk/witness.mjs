@@ -44,11 +44,25 @@ export const SIDO = [
 // ★ issuer-web/services/vcsign.ts 와 반드시 동일. 회로 입력의 key_* 도 이 값과 일치.
 export const CLAIM_KEY = { name: 0, birthDate: 1, residence: 2, university: 3, validUntil: 4 };
 
-// 데모용 고정 테스트 발급기관 개인키(서명 단계에서만 사용). 여기서 공개키가 파생된다.
-export const ISSUER_PRV = Buffer.from(
-  '0001020304050607080900010203040506070809000102030405060708090001',
-  'hex',
-);
+// 발급기관 레지스트리 — 기관마다 별개의 키를 갖는다. 하나의 키를 공유하면 회로가
+// '이 키로 서명된 어떤 증명서' 까지만 구분해, 대학이 거주를 증명하는 것을 막을 수 없다.
+// prv 는 데모 전용 고정값(서명 단계에서만 쓰인다). ★ scenarios/_registry.circom 의
+//    시나리오별 발급기관 목록과 공개키가 일치해야 한다.
+export const ISSUERS = {
+  mois: { name: '행정안전부', id: 'https://www.mois.go.kr', prv: '0001020304050607080900010203040506070809000102030405060708090001' },
+  police: { name: '경찰청', id: 'https://www.police.go.kr', prv: '0001020304050607080900010203040506070809000102030405060708090002' },
+  cnu: { name: '충남대학교', id: 'https://cnu.ac.kr/registrar', prv: '0001020304050607080900010203040506070809000102030405060708090003' },
+  hrdk: { name: '한국산업인력공단', id: 'https://www.hrdkorea.or.kr', prv: '0001020304050607080900010203040506070809000102030405060708090004' },
+  nhis: { name: '국민건강보험공단', id: 'https://www.nhis.or.kr', prv: '0001020304050607080900010203040506070809000102030405060708090005' },
+};
+
+/** VC 의 issuer.id 로 발급기관 키를 찾는다. */
+export function issuerKeyOf(vc) {
+  const id = typeof vc?.issuer === 'string' ? vc.issuer : vc?.issuer?.id;
+  const entry = Object.entries(ISSUERS).find(([, v]) => v.id === id);
+  if (!entry) throw new Error(`등록되지 않은 발급기관: ${id}`);
+  return { key: entry[0], ...entry[1], prv: Buffer.from(entry[1].prv, 'hex') };
+}
 
 // "YYYY-MM-DD" → YYYYMMDD 정수(달력 순서를 보존해 회로에서 나이·만료 비교에 사용).
 export function toYmd(dateStr) {
@@ -102,7 +116,7 @@ export async function buildWitness(vc) {
   for (const k of Object.keys(claims)) inclusions[k] = await inclusion(k);
 
   return {
-    F, eddsa, subj,
+    F, eddsa, subj, vc,
     currentDate: todayYmd(),
     // 제출 지갑주소(A2 바인딩) — 데모는 VC 의 walletAddress. 실제 흐름에선 증명 시점에 지갑이
     // 자신의 현재 주소를 넣는다(서명된 VC 와 독립). 160비트 주소는 필드에 그대로 들어감.
@@ -114,10 +128,12 @@ export async function buildWitness(vc) {
 }
 
 // 발급기관 서명 (개인키 필요) — sign.mjs 전용. 메시지 = SMT root.
-export function signVc(w) {
-  const pub = w.eddsa.prv2pub(ISSUER_PRV);
+/** VC 를 그 VC 의 발급기관 키로 서명한다. issuer 를 넘기면 그 키를 쓴다. */
+export function signVc(w, issuer) {
+  const prv = issuer?.prv ?? issuerKeyOf(w.vc).prv;
+  const pub = w.eddsa.prv2pub(prv);
   const msg = w.F.e(w.rootF);
-  const sig = w.eddsa.signPoseidon(ISSUER_PRV, msg);
+  const sig = w.eddsa.signPoseidon(prv, msg);
   return {
     Ax: w.F.toObject(pub[0]), Ay: w.F.toObject(pub[1]),
     R8x: w.F.toObject(sig.R8[0]), R8y: w.F.toObject(sig.R8[1]), S: sig.S,
