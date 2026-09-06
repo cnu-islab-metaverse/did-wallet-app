@@ -1,11 +1,11 @@
 {
   "extensionDescription": {
     "description": "Extension description",
-    "message": "React, Typescript, Vite를 사용한 크롬 익스텐션 보일러플레이트입니다."
+    "message": "웹페이지의 인증토큰 발급 요청을 설치된 DID 지갑 프로그램으로 전달합니다. 키 보관과 승인은 지갑 프로그램에서 이뤄집니다."
   },
   "extensionName": {
     "description": "Extension name",
-    "message": "크롬 익스텐션 보일러플레이트"
+    "message": "CNU DID 지갑 연결"
   },
   "toggleTheme": {
     "message": "테마 변경"

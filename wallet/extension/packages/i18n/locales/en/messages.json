@@ -1,11 +1,11 @@
 {
   "extensionDescription": {
     "description": "Extension description",
-    "message": "Chrome extension boilerplate developed with Vite, React and Typescript"
+    "message": "Relays pass-issuance requests from web pages to the installed CNU DID Wallet desktop program. Keys and approvals stay there."
   },
   "extensionName": {
     "description": "Extension name",
-    "message": "Chrome extension boilerplate"
+    "message": "CNU DID Wallet Connector"
   },
   "toggleTheme": {
     "message": "Toggle theme"
