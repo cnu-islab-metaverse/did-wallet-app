@@ -12,6 +12,23 @@
       "presentation": { "reveal": "always", "panel": "new", "group": "wallet" }
     },
     {
+      "label": "Wallet (demo)",
+      "type": "shell",
+      "command": "npm run dev:desktop:debug",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "new", "group": "wallet" }
+    },
+    {
+      "label": "Demo (scenario run)",
+      "type": "shell",
+      "command": "npm run demo",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "new" }
+    },
+    {
       "label": "Wallet (archive)",
       "type": "shell",
       "command": "npm run dev:desktop",

@@ -1,0 +1,14 @@
+{
+  "name": "demo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "시나리오 실증 자동화 — 브라우저와 지갑을 실제로 조작해 전 과정을 눈앞에서 재현한다",
+  "scripts": {
+    "demo": "node run.mjs",
+    "demo:univ": "node run.mjs --scenario regional_national_univ"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}

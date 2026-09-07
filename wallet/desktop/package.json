@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+  "dev:debug": "node scripts/dev-debug.mjs",
     "typecheck": "tsc --noEmit",
     "build": "yarn typecheck && vite build && electron-builder",
     "build:nocheck": "vite build && electron-builder",

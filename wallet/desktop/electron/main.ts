@@ -7,6 +7,13 @@ import { generateProof, circuitReady, verifyVcSignature, type Scenario } from '.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// 시연 자동화가 렌더러에 붙을 수 있도록 CDP 를 연다. app ready 전에 켜야 한다.
+// 켰을 때만 열리므로 평소 실행에는 영향이 없다 —  WALLET_DEBUG_PORT=9222 yarn dev
+if (process.env.WALLET_DEBUG_PORT) {
+  app.commandLine.appendSwitch('remote-debugging-port', process.env.WALLET_DEBUG_PORT)
+  console.log('[main] CDP 열림 :' + process.env.WALLET_DEBUG_PORT)
+}
+
 // The built directory structure
 //
 // ├─┬─┬ dist
