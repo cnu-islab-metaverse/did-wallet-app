@@ -1,6 +1,6 @@
 // [작업] 증명서(VC) 보관소 — 활성 계정 주소별로 storage 에 저장/로드.
 //        구조는 { [소문자 주소]: VC[] } 단일 맵. 재발급분은 새 항목이 아니라 이력으로 쌓인다.
-// [결과] getVCs / addVC / removeVC / seedVCsIfEmpty + 안정 id(vcId) + 이력 묶음(groupVCs).
+// [결과] getVCs / addVC / removeVC / seedVCs + 안정 id(vcId) + 이력 묶음(groupVCs).
 import { storageAdapter } from './storageAdapter'
 import { STORAGE_KEYS } from '../config/storage'
 
@@ -10,7 +10,8 @@ type VCMap = Record<string, StoredVC[]>
 // 시드를 이미 넣은 주소 기록. 이게 없으면 사용자가 시드 VC 를 전부 지워도
 // 다음 로드에서 되살아나 "삭제가 안 되는" 것처럼 보인다.
 const SEEDED_KEY = 'saved_vcs.seeded.v1'
-type SeededMap = Record<string, true>
+// 값은 시드 내용의 지문. 예전 형식(true)도 읽을 수 있게 둔다.
+type SeededMap = Record<string, true | string>
 
 const key = (address: string) => address.toLowerCase()
 
@@ -142,21 +143,56 @@ export async function removeLineage(address: string, lineage: string): Promise<v
 }
 
 /**
+ * 시드 교체용 "자리" 키. vcLineage 와 달리 issuer.id 를 쓰지 않는다 —
+ * 발급기관 식별자 표기가 바뀌어도(URL → did:web) 같은 자리로 봐야 낡은 시드가 남지 않는다.
+ */
+function seedSlot(vc: any): string {
+  const iss = vc?.issuer
+  const name = (typeof iss === 'string' ? iss : (iss?.name ?? iss?.id)) ?? '?'
+  const types: string[] = Array.isArray(vc?.type) ? vc.type : [vc?.type].filter(Boolean)
+  const t = types.find((x) => x && x !== 'VerifiableCredential') ?? 'VerifiableCredential'
+  const s = vc?.credentialSubject ?? {}
+  const variant = s.certificateType ?? s.status ?? s.degree ?? s.qualification?.qualificationName ?? s.drivingLicense?.licenseType ?? ''
+  return `${name}|${t}|${variant}`
+}
+
+/** 시드 내용의 지문. 서명이 바뀌면 값이 달라진다. */
+function seedFingerprint(vcs: StoredVC[]): string {
+  const s = JSON.stringify(
+    vcs.map((v) => [v?.issuer?.publicKey?.Ax ?? null, v?.proof?.signature?.S ?? null]),
+  )
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return h.toString(36)
+}
+
+/**
  * 개발/데모 편의용 초기 데이터 주입. 주소당 딱 한 번만 넣는다.
  * "비어 있으면 넣는다" 가 아니라 "넣은 적 없으면 넣는다" 이므로,
  * 사용자가 시드 VC 를 지우면 지워진 채로 남는다(재발급으로 다시 추가할 수 있다).
+ *
+ * 단, 시드 자체가 바뀌면(발급기관 키 교체 등) 낡은 시드는 어떤 증명도 만들 수 없으므로
+ * 같은 계보의 항목을 새 것으로 갈아 끼운다. 사용자가 따로 넣은 VC 는 건드리지 않는다.
  */
-export async function seedVCsIfEmpty(address: string, vcs: StoredVC[]): Promise<void> {
+export async function seedVCs(address: string, vcs: StoredVC[]): Promise<void> {
   const k = key(address)
   const seeded = await loadSeeded()
-  if (seeded[k]) return
+  const fp = seedFingerprint(vcs)
+  const mark = seeded[k]
+  if (mark === fp) return
 
   const map = await loadMap()
-  if (!map[k] || map[k].length === 0) {
-    map[k] = vcs.map((v) => ({ ...v }))
-    await saveMap(map)
+  if (!mark) {
+    // 처음 — 비어 있을 때만 넣는다.
+    if (!map[k] || map[k].length === 0) map[k] = vcs.map((v) => ({ ...v }))
+  } else {
+    // 시드가 바뀌었다. 같은 자리의 낡은 시드만 걷어내고 새 것을 넣는다.
+    const slots = new Set(vcs.map((v) => seedSlot(v)))
+    const kept = (map[k] || []).filter((v) => !slots.has(seedSlot(v)))
+    map[k] = [...vcs.map((v) => ({ ...v })), ...kept]
   }
-  seeded[k] = true
+  await saveMap(map)
+  seeded[k] = fp
   await storageAdapter.set(SEEDED_KEY, seeded)
 }
 

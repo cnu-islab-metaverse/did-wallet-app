@@ -278,7 +278,10 @@ export const WalletShell: React.FC = () => {
     void (async () => {
       setIssueErr('')
       const label = SCENARIO_LABEL_MAP[r.request.scenario]
-      const vc = vcs.find((v) => scenariosForVc(v).includes(r.request.scenario))
+      // 같은 시나리오를 증명할 수 있는 것이 여럿이면 만료되지 않은 것을 쓴다.
+      // (재학증명서가 만료돼도 졸업증명서로 소속을 증명할 수 있다.)
+      const usable = vcs.filter((v) => scenariosForVc(v).includes(r.request.scenario))
+      const vc = usable.find((v) => !isExpired(v)) ?? usable[0]
       if (!vc) {
         setIssueErr(`이 요청에 맞는 증명서가 없습니다 (${label}).`)
         await logActivity(acc.address, { kind: 'pass', title: `${label} 발급 실패`, detail: '맞는 증명서가 없습니다', status: 'fail', origin: r.request.origin?.url })

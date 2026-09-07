@@ -1,5 +1,5 @@
 // [작업] 활성 계정의 증명서(VC) 목록 상태 훅. 주소가 바뀌면 해당 계정 VC 를 다시 로드.
-// [결과] useVCs(address, seedIfEmpty?) → { vcs, groups, loading, addVC, removeVC, removeLineage, vcId, refresh }
+// [결과] useVCs(address, seed?) → { vcs, groups, loading, addVC, removeVC, removeLineage, vcId, refresh }
 //        groups 는 재발급본을 계보로 묶은 목록(대표 + 이력).
 import { useCallback, useEffect, useState } from 'react'
 import * as vcStore from '../lib/vcStore'
@@ -13,8 +13,8 @@ export function useVCs(address: string | undefined, seedIfEmpty?: any[]) {
     if (!address) { setVcs([]); setGroups([]); setLoading(false); return }
     setLoading(true)
     let list = await vcStore.getVCs(address)
-    if (list.length === 0 && seedIfEmpty && seedIfEmpty.length) {
-      await vcStore.seedVCsIfEmpty(address, seedIfEmpty)
+    if (seedIfEmpty && seedIfEmpty.length) {
+      await vcStore.seedVCs(address, seedIfEmpty)
       list = await vcStore.getVCs(address)
     }
     setVcs(list)

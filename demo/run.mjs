@@ -31,6 +31,7 @@ const CHECK_ONLY = has('check')
 const NO_SPAWN = has('no-spawn')
 const HALF = has('full') ? null : arg('half', 'left')
 const MARGIN = Number(arg('margin', '28'))
+const NO_SHOTS = has('no-shots')
 
 const ZONE = {
   youth_pass: { label: '지역청년패스', zone: '대전 청년 라운지' },
@@ -107,15 +108,56 @@ async function click(page, target, label) {
 
 // 한 번에 하나만 조작하고, 조작하는 창이 위에 있어야 한다.
 let front = null
+let frontPage = null
 async function focus(which, page, wallet) {
+  frontPage = which === 'wallet' ? wallet : page
   if (front === which) return
   front = which
   try {
     if (which === 'wallet') await wallet.evaluate(() => window.ipcRenderer?.windowFocus?.())
     else await page.bringToFront()
   } catch { /* 창이 없으면 넘어간다 */ }
-  await (which === 'wallet' ? wallet : page).waitForTimeout(500)
+  await frontPage.waitForTimeout(500)
   info(which === 'wallet' ? '── 지갑 창 ──' : '── 브라우저 ──')
+}
+
+// ── 단계별 스크린샷 ──────────────────────────────────────────────────
+// 실행할 때마다 비우고 처음부터 모은다. 보고서·발표자료에 그대로 쓰기 위한 것이라
+// 파일명에 순번과 제목을 넣고, 목록을 index.md 로 함께 낸다.
+const SHOTS = path.join(__dirname, 'shots')
+const shots = []
+function resetShots() {
+  fs.rmSync(SHOTS, { recursive: true, force: true })
+  fs.mkdirSync(SHOTS, { recursive: true })
+}
+async function capture(title) {
+  if (!frontPage || NO_SHOTS) return
+  const n = String(shots.length + 1).padStart(2, '0')
+  const safe = title.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim()
+  const name = `${n}_${safe}.png`
+  try {
+    await frontPage.screenshot({ path: path.join(SHOTS, name) })
+    shots.push({ n, title, name, where: front === 'wallet' ? '지갑' : '브라우저' })
+    info(`스크린샷 ${name}`)
+  } catch (e) { info(`스크린샷 실패(무시): ${e?.message || e}`) }
+}
+function writeShotIndex(meta) {
+  if (NO_SHOTS || !shots.length) return
+  const rows = shots.map((s) => `| ${s.n} | ${s.where} | ${s.title} | \`${s.name}\` |`).join(NL)
+  const md = [
+    `# 시연 스크린샷 — ${meta.label}`,
+    '',
+    ...Object.entries(meta.facts).map(([k, v]) => `- **${k}**: ${v}`),
+    '',
+    '| # | 화면 | 단계 | 파일 |',
+    '|---|---|---|---|',
+    rows,
+    '',
+    '> `npm run demo` 를 다시 돌리면 이 폴더를 비우고 새로 모읍니다.',
+    '',
+  ].join(NL)
+  fs.writeFileSync(path.join(SHOTS, 'index.md'), md)
+  ok(`스크린샷 ${shots.length}장 → demo/shots/ (index.md 포함)`)
 }
 
 // ── 사전 점검 / 서비스 확보 ──────────────────────────────────────────
@@ -239,6 +281,7 @@ async function walletNav(wallet, name) {
 
 // ── 본편 ─────────────────────────────────────────────────────────────
 async function main() {
+  if (!CHECK_ONLY && !NO_SHOTS) resetShots()
   const ids = await preflight()
   if (CHECK_ONLY) { console.log(`${NL}사전 점검만 수행했습니다 (--check).${NL}`); return }
 
@@ -281,6 +324,7 @@ async function main() {
   await focus('wallet', page, wallet)
   await say([wallet], '지갑에 보관된 증명서를 확인합니다.')
   await walletNav(wallet, '증명서 (VC)')
+  await capture('지갑에 보관된 증명서')
 
   step('플랫폼 메인 화면')
   await focus('browser', page, wallet)
@@ -288,6 +332,7 @@ async function main() {
   await overlay(page)
   await say([page], '메타버스 플랫폼에 접속했습니다.')
   await page.waitForTimeout(1000)
+  await capture('메타버스 플랫폼 메인')
 
   step('인증토큰 발급 화면으로 이동')
   await click(page, page.getByRole('link', { name: /인증토큰 발급받기/ }), '인증토큰 발급받기')
@@ -299,6 +344,7 @@ async function main() {
   await click(page, zone, '공간 선택')
   await zone.selectOption(SCENARIO)
   await page.waitForTimeout(700)
+  await capture('입장할 공간 선택')
 
   step('지갑에서 아바타 주소 가져오기 (확장 경유)')
   await say([page], '브라우저 확장을 통해 지갑의 계정 주소를 가져옵니다.')
@@ -319,10 +365,12 @@ async function main() {
   const before = (await page.textContent('#status'))?.trim()
   await say([page], `현재 상태 — ${before}`)
   await page.waitForTimeout(1600)
+  await capture('발급 전 — 미보유 확인')
 
   step('발급 요청을 만들어 지갑으로 보내기')
   await say(stage, '플랫폼이 발급 요청을 만들고, 확장이 그것을 데스크톱 지갑으로 나릅니다.')
   await click(page, '#send', '지갑으로 바로 보내기')
+  await capture('발급 요청 생성 (QR·주소)')
 
   step('지갑에서 요청 승인')
   await focus('wallet', page, wallet)
@@ -331,13 +379,31 @@ async function main() {
   await approve.waitFor({ state: 'visible', timeout: 60000 })
   ok('승인 창이 떴습니다')
   await wallet.waitForTimeout(2000) // 내용을 볼 시간
+  await capture('지갑 승인 화면 — 체인에서 확인한 내용')
   await say([wallet], '승인합니다. 영지식 증명이 만들어져 온체인에 제출됩니다.')
   await click(wallet, approve, '승인 · 발급받기')
 
   step('증명 생성 · 온체인 발급 (수십 초)')
   await say(stage, '영지식 증명을 만들고 Sepolia 에 제출하는 중입니다…')
-  await wallet.getByText('인증토큰 발급 완료').waitFor({ state: 'visible', timeout: 240000 })
+  // 실패해도 4분을 기다리면 안 된다. 둘 중 먼저 뜨는 것을 잡는다.
+  const verdict = await wallet.waitForFunction(() => {
+    const t = document.body.innerText
+    if (t.includes('인증토큰 발급 완료')) return 'ok'
+    if (t.includes('인증토큰 발급 실패')) return 'fail'
+    return null
+  }, null, { timeout: 240000 }).then((h) => h.jsonValue())
+
+  if (verdict === 'fail') {
+    await capture('발급 실패')
+    const why = await wallet.evaluate(() => {
+      const t = document.body.innerText
+      const i = t.indexOf('인증토큰 발급 실패')
+      return t.slice(i, i + 400).split(String.fromCharCode(10)).slice(1, 5).join(' ').trim()
+    })
+    throw new Error(`지갑에서 발급이 실패했습니다 — ${why}`)
+  }
   ok('발급 완료 창')
+  await capture('발급 완료 — 토큰 ID·트랜잭션')
 
   const detail = await wallet.evaluate(() => {
     const t = document.body.innerText
@@ -350,6 +416,7 @@ async function main() {
   await say([wallet], '발급된 인증토큰을 지갑에서 확인합니다.')
   await click(wallet, wallet.getByRole('button', { name: '인증토큰 보기' }), '인증토큰 보기').catch(() => {})
   await wallet.waitForTimeout(1500)
+  await capture('지갑의 인증토큰 목록')
 
   step('플랫폼이 체인을 조회해 입장 판정')
   await focus('browser', page, wallet)
@@ -362,6 +429,8 @@ async function main() {
   const after = (await page.textContent('#status'))?.trim()
   ok(`상태: ${after}`)
   await say([page], `${after} — 시연 완료`)
+  await page.waitForTimeout(600)
+  await capture('발급 후 — 입장 가능')
 
   const line = '─'.repeat(58)
   console.log(`${NL}${line}`)
@@ -373,6 +442,17 @@ async function main() {
   if (detail.txHash) console.log(`  트랜잭션   https://sepolia.etherscan.io/tx/${detail.txHash}`)
   console.log(`  소요       ${((Date.now() - t0) / 1000).toFixed(1)}초`)
   console.log(`${line}${NL}`)
+
+  writeShotIndex({
+    label: `${ZONE[SCENARIO].label} (${SCENARIO})`,
+    facts: {
+      '아바타': avatar,
+      '이전 상태': before,
+      '이후 상태': after,
+      '토큰 ID': detail.tokenId ?? '-',
+      '트랜잭션': detail.txHash ? `https://sepolia.etherscan.io/tx/${detail.txHash}` : '-',
+    },
+  })
 
   if (!has('keep')) {
     info('20초 뒤 브라우저를 닫습니다 (--keep 으로 열어 둘 수 있습니다).')
