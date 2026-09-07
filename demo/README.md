@@ -42,9 +42,13 @@ npm run demo:check        # 준비 상태만 확인
 ```
 --scenario youth_pass|regional_national_univ
 --slow 350        동작 간격(ms). 크게 하면 더 천천히 움직인다
+--half left|right 브라우저를 화면 절반에 붙인다 (기본 left)
+--full            절반 대신 최대화
 --keep            끝나고 브라우저를 닫지 않는다
 --platform URL    기본 http://localhost:20260
 --cdp 9222        지갑 CDP 포트
+
+브라우저는 기본으로 화면 **왼쪽 절반**만 쓴다. 나머지 절반에 터미널이나 지갑 창을 둔다.
 ```
 
 ## 몇 번이든 돌릴 수 있다

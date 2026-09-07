@@ -27,6 +27,8 @@ const PLATFORM = arg('platform', 'http://localhost:20260')
 const CDP = `http://127.0.0.1:${arg('cdp', '9222')}`
 const SLOW = Number(arg('slow', '350'))
 const CHECK_ONLY = has('check')
+// 브라우저가 화면 절반만 쓰게 한다 — 나머지 절반에 터미널이나 지갑 창을 둘 수 있다.
+const HALF = has('full') ? null : arg('half', 'left')
 
 const ZONE = {
   youth_pass: { label: '지역청년패스', zone: '대전 청년 라운지' },
@@ -127,6 +129,30 @@ async function attachWallet() {
   fail('지갑 렌더러를 찾지 못했습니다. 지갑 창이 열려 있는지 확인하세요.')
 }
 
+/**
+ * 창을 화면 절반에 붙인다. 크기는 페이지에서 읽은 CSS 픽셀 기준이라
+ * 디스플레이 배율이 걸려 있어도 어긋나지 않는다.
+ */
+async function placeHalf(ctx, page, side) {
+  try {
+    const a = await page.evaluate(() => ({
+      x: screen.availLeft ?? 0, y: screen.availTop ?? 0,
+      w: screen.availWidth, h: screen.availHeight,
+    }))
+    const width = Math.floor(a.w / 2)
+    const left = side === 'right' ? a.x + (a.w - width) : a.x
+    const cdp = await ctx.newCDPSession(page)
+    const { windowId } = await cdp.send('Browser.getWindowForTarget')
+    await cdp.send('Browser.setWindowBounds', {
+      windowId,
+      bounds: { left, top: a.y, width, height: a.h, windowState: 'normal' },
+    })
+    ok(`브라우저를 화면 ${side === 'right' ? '오른쪽' : '왼쪽'} 절반에 배치 (${width}x${a.h})`)
+  } catch (e) {
+    info(`창 배치 실패(무시): ${e?.message || e}`)
+  }
+}
+
 // ── 본편 ─────────────────────────────────────────────────────────────
 async function main() {
   const ids = await preflight()
@@ -146,7 +172,7 @@ async function main() {
     args: [
       `--disable-extensions-except=${EXT_DIST}`,
       `--load-extension=${EXT_DIST}`,
-      '--start-maximized',
+      ...(HALF ? [] : ['--start-maximized']),
       '--no-first-run',
     ],
   })
@@ -164,6 +190,7 @@ async function main() {
   }
 
   const page = ctx.pages()[0] ?? (await ctx.newPage())
+  if (HALF) await placeHalf(ctx, page, HALF)
   const stage = [page, wallet]
 
   step('플랫폼 메인 화면')
