@@ -1,19 +1,20 @@
 // [작업] 시나리오 실증 자동화 — 실제 브라우저와 실제 지갑을 조작해 전 과정을 눈앞에서 재현한다.
-//        플랫폼에서 발급 요청 → 확장이 지갑으로 전달 → 지갑에서 승인 → 영지식 증명 → 온체인 발급
-//        → 플랫폼이 체인을 조회해 입장 가능으로 바뀜.
-// [결과] node run.mjs [--scenario youth_pass|regional_national_univ] [--check] [--slow ms]
+//        마우스를 실제로 움직여 누르고, 화면에 커서와 자막을 그려 사람이 조작하는 것처럼 보인다.
+// [결과] node run.mjs [--scenario …] [--check] [--slow ms] [--half left|right]
 //
-// 앱과 검증자 서버는 띄우지 않고 **실행 중인 것에 붙는다**. 자동화가 소유하면 끝날 때 같이 죽는다.
+// 필요한 서비스는 알아서 켠다. 켠 것은 끄지 않는다 — 결과를 봐야 하고,
+// 부모만 죽이면 Electron 자식이 파이프를 쥔 채 남는다.
 import { chromium } from 'playwright'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
-import { execSync } from 'node:child_process'
+import { execSync, spawn } from 'node:child_process'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
 const EXT_DIST = path.join(ROOT, 'wallet', 'extension', 'dist')
+const NL = String.fromCharCode(10)
 
 const argv = process.argv.slice(2)
 const arg = (name, dflt) => {
@@ -25,52 +26,99 @@ const has = (name) => argv.includes(`--${name}`)
 const SCENARIO = arg('scenario', 'youth_pass')
 const PLATFORM = arg('platform', 'http://localhost:20260')
 const CDP = `http://127.0.0.1:${arg('cdp', '9222')}`
-const SLOW = Number(arg('slow', '350'))
+const SLOW = Number(arg('slow', '250'))
 const CHECK_ONLY = has('check')
-// 브라우저가 화면 절반만 쓰게 한다 — 나머지 절반에 터미널이나 지갑 창을 둘 수 있다.
+const NO_SPAWN = has('no-spawn')
 const HALF = has('full') ? null : arg('half', 'left')
+const MARGIN = Number(arg('margin', '28'))
 
 const ZONE = {
   youth_pass: { label: '지역청년패스', zone: '대전 청년 라운지' },
   regional_national_univ: { label: '지방거점국립대 소속', zone: '대학 협력관' },
 }
-if (!ZONE[SCENARIO]) fail(`알 수 없는 시나리오: ${SCENARIO}`)
 
 // ── 진행 표시 ────────────────────────────────────────────────────────
 const t0 = Date.now()
 const stamp = () => `${((Date.now() - t0) / 1000).toFixed(1).padStart(5)}s`
 let stepNo = 0
-function step(msg) {
-  stepNo++
-  console.log(`\n[${stamp()}] ${String(stepNo).padStart(2)}. ${msg}`)
-}
-function info(msg) { console.log(`[${stamp()}]     ${msg}`) }
-function ok(msg) { console.log(`[${stamp()}]     ✓ ${msg}`) }
-function fail(msg) { console.error(`\n✗ ${msg}\n`); process.exit(1) }
+const step = (m) => console.log(`${NL}[${stamp()}] ${String(++stepNo).padStart(2)}. ${m}`)
+const info = (m) => console.log(`[${stamp()}]     ${m}`)
+const ok = (m) => console.log(`[${stamp()}]     ✓ ${m}`)
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+function fail(m) { console.error(`${NL}✗ ${m}${NL}`); process.exit(1) }
 
-// ── 화면 위 자막 — 무엇을 하고 있는지 보이게 한다 ──────────────────────
-const NARRATE = `(text) => {
-  let el = document.getElementById('__demo_narration')
-  if (!el) {
-    el = document.createElement('div')
-    el.id = '__demo_narration'
-    el.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483647;' +
-      'background:linear-gradient(90deg,#6d8bff,#a06dff);color:#fff;font:600 15px/1.5 ' +
-      '"Malgun Gothic",system-ui,sans-serif;padding:12px 20px;box-shadow:0 -4px 20px rgba(0,0,0,.35);' +
+if (!ZONE[SCENARIO]) fail(`알 수 없는 시나리오: ${SCENARIO}`)
+
+// ── 화면 위 커서와 자막 ──────────────────────────────────────────────
+// Playwright 의 마우스는 실제 입력 이벤트를 보내므로, 페이지에서 그 좌표를 받아 커서를 그린다.
+const OVERLAY = `() => {
+  if (window.__demoOverlay) return
+  window.__demoOverlay = true
+  const add = () => {
+    if (!document.body) return setTimeout(add, 30)
+    const c = document.createElement('div')
+    c.id = '__demo_cursor'
+    c.style.cssText = 'position:fixed;left:-99px;top:-99px;z-index:2147483647;width:24px;height:24px;' +
+      'margin:-12px 0 0 -12px;border-radius:50%;background:rgba(109,139,255,.30);border:2px solid #6d8bff;' +
+      'box-shadow:0 0 0 5px rgba(109,139,255,.14);pointer-events:none;transition:transform .09s ease-out'
+    document.body.appendChild(c)
+    const n = document.createElement('div')
+    n.id = '__demo_narration'
+    n.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483646;' +
+      'background:linear-gradient(90deg,#6d8bff,#a06dff);color:#fff;font:600 14px/1.5 ' +
+      '"Malgun Gothic",system-ui,sans-serif;padding:11px 18px;box-shadow:0 -4px 20px rgba(0,0,0,.35);' +
       'pointer-events:none;letter-spacing:-0.01em'
-    document.body.appendChild(el)
+    document.body.appendChild(n)
+    addEventListener('mousemove', (e) => {
+      c.style.left = e.clientX + 'px'; c.style.top = e.clientY + 'px'
+    }, true)
+    addEventListener('mousedown', () => { c.style.transform = 'scale(.55)' }, true)
+    addEventListener('mouseup', () => { c.style.transform = 'scale(1)' }, true)
   }
-  el.textContent = '▶ ' + text
+  add()
 }`
 
+const SAY = `(text) => {
+  const n = document.getElementById('__demo_narration')
+  if (n) n.textContent = '▶ ' + text
+}`
+
+async function overlay(page) { try { await page.evaluate(OVERLAY) } catch { /* */ } }
 async function say(targets, text) {
   info(text)
-  for (const t of targets) {
-    try { await t.evaluate(NARRATE, text) } catch { /* 페이지 전환 중 */ }
-  }
+  for (const t of targets) { try { await t.evaluate(SAY, text) } catch { /* */ } }
 }
 
-// ── 사전 점검 ────────────────────────────────────────────────────────
+/** 마우스를 그 자리까지 움직여서 누른다. 사람이 조작하는 것처럼 보이게. */
+async function click(page, target, label) {
+  const el = typeof target === 'string' ? page.locator(target) : target
+  await el.waitFor({ state: 'visible', timeout: 30000 })
+  await el.scrollIntoViewIfNeeded().catch(() => {})
+  const box = await el.boundingBox()
+  if (!box) throw new Error(`요소 위치를 알 수 없습니다: ${label ?? target}`)
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 30 })
+  await page.waitForTimeout(280)
+  await page.mouse.down()
+  await page.waitForTimeout(90)
+  await page.mouse.up()
+  if (label) info(`클릭 — ${label}`)
+  await page.waitForTimeout(220)
+}
+
+// 한 번에 하나만 조작하고, 조작하는 창이 위에 있어야 한다.
+let front = null
+async function focus(which, page, wallet) {
+  if (front === which) return
+  front = which
+  try {
+    if (which === 'wallet') await wallet.evaluate(() => window.ipcRenderer?.windowFocus?.())
+    else await page.bringToFront()
+  } catch { /* 창이 없으면 넘어간다 */ }
+  await (which === 'wallet' ? wallet : page).waitForTimeout(500)
+  info(which === 'wallet' ? '── 지갑 창 ──' : '── 브라우저 ──')
+}
+
+// ── 사전 점검 / 서비스 확보 ──────────────────────────────────────────
 async function reachable(url) {
   try {
     const r = await fetch(url, { signal: AbortSignal.timeout(2500) })
@@ -90,85 +138,121 @@ function registeredExtensionIds() {
   } catch { return null }
 }
 
-async function preflight() {
-  step('사전 점검')
+async function ensure(name, check, cwd, script, timeoutMs) {
+  if (await check()) { ok(`${name} 이미 실행 중`); return }
+  if (CHECK_ONLY) { info(`· ${name} 꺼져 있음 — demo 실행 시 자동으로 켭니다`); return }
+  if (NO_SPAWN) fail(`${name} 이 실행돼 있지 않습니다 (--no-spawn).`)
 
+  // 로그를 파일로 남긴다 — 버리면 왜 안 떴는지 알 수 없다.
+  const log = path.join(__dirname, `${cwd.replace(/[\\/]/g, '-')}.log`)
+  info(`${name} 이 없어 시작합니다 — ${cwd} · yarn ${script}`)
+  const fd = fs.openSync(log, 'w')
+  const child = spawn('yarn', [script], {
+    cwd: path.join(ROOT, cwd), shell: true, detached: true, stdio: ['ignore', fd, fd],
+  })
+  child.unref()
+
+  const t = Date.now()
+  while (Date.now() - t < timeoutMs) {
+    await sleep(1000)
+    if (await check()) { ok(`${name} 준비됨 (${((Date.now() - t) / 1000).toFixed(0)}초)`); return }
+  }
+  const tail = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').split(NL).slice(-12).join(NL) : ''
+  fail(`${name} 을 시작했지만 ${timeoutMs / 1000}초 안에 응답하지 않았습니다.${NL}  로그: ${log}${NL}${tail}`)
+}
+
+async function preflight() {
+  step('준비')
   if (!fs.existsSync(path.join(EXT_DIST, 'manifest.json'))) {
-    fail(`확장 빌드가 없습니다: ${EXT_DIST}\n  nvm use 22.17.0 && cd wallet/extension && pnpm build`)
+    fail(`확장 빌드가 없습니다: ${EXT_DIST}${NL}  nvm use 22.17.0 && cd wallet/extension && pnpm build`)
   }
   ok(`확장 빌드 ${EXT_DIST}`)
 
   const ids = registeredExtensionIds()
-  if (!ids) info('⚠ 네이티브 호스트가 등록돼 있지 않습니다 — cd wallet/desktop && yarn register:host')
+  if (!ids) info('⚠ 네이티브 호스트 미등록 — cd wallet/desktop && yarn register:host')
   else ok(`네이티브 호스트 등록됨 (${ids.join(', ')})`)
 
-  if (!(await reachable(PLATFORM))) {
-    fail(`검증자 웹이 응답하지 않습니다: ${PLATFORM}\n  cd verifier-web && yarn dev`)
-  }
-  ok(`플랫폼 ${PLATFORM}`)
-
-  if (!(await reachable(`${CDP}/json/version`))) {
-    fail(
-      `데스크톱 지갑에 붙을 수 없습니다: ${CDP}\n` +
-      `  지갑을 CDP 를 연 채로 띄워 주세요 — cd wallet/desktop && yarn dev:debug\n` +
-      `  (이 스크립트는 앱을 대신 띄우지 않습니다. 앱은 직접 띄워 두시는 것이 맞습니다.)`,
-    )
-  }
-  ok(`지갑 CDP ${CDP}`)
+  await ensure('플랫폼(검증자 웹)', () => reachable(PLATFORM), 'verifier-web', 'dev', 90000)
+  await ensure('데스크톱 지갑', () => reachable(`${CDP}/json/version`), 'wallet/desktop', 'dev:debug', 180000)
   return ids
 }
 
-// ── 지갑(Electron) 렌더러 붙기 ───────────────────────────────────────
-async function attachWallet() {
-  const browser = await chromium.connectOverCDP(CDP)
-  const pages = browser.contexts().flatMap((c) => c.pages())
-  for (const p of pages) {
-    const isWallet = await p.evaluate(() => typeof (window).ipcRenderer !== 'undefined').catch(() => false)
-    if (isWallet) return { browser, page: p }
-  }
-  fail('지갑 렌더러를 찾지 못했습니다. 지갑 창이 열려 있는지 확인하세요.')
+// ── 창 배치 ──────────────────────────────────────────────────────────
+async function workArea(page) {
+  return page.evaluate(() => ({
+    x: screen.availLeft ?? 0, y: screen.availTop ?? 0, w: screen.availWidth, h: screen.availHeight,
+  }))
 }
 
-/**
- * 창을 화면 절반에 붙인다. 크기는 페이지에서 읽은 CSS 픽셀 기준이라
- * 디스플레이 배율이 걸려 있어도 어긋나지 않는다.
- */
-async function placeHalf(ctx, page, side) {
+async function placeBrowser(ctx, page, side) {
   try {
-    const a = await page.evaluate(() => ({
-      x: screen.availLeft ?? 0, y: screen.availTop ?? 0,
-      w: screen.availWidth, h: screen.availHeight,
-    }))
+    const a = await workArea(page)
     const width = Math.floor(a.w / 2)
     const left = side === 'right' ? a.x + (a.w - width) : a.x
     const cdp = await ctx.newCDPSession(page)
     const { windowId } = await cdp.send('Browser.getWindowForTarget')
     await cdp.send('Browser.setWindowBounds', {
-      windowId,
-      bounds: { left, top: a.y, width, height: a.h, windowState: 'normal' },
+      windowId, bounds: { left, top: a.y, width, height: a.h, windowState: 'normal' },
     })
-    ok(`브라우저를 화면 ${side === 'right' ? '오른쪽' : '왼쪽'} 절반에 배치 (${width}x${a.h})`)
-  } catch (e) {
-    info(`창 배치 실패(무시): ${e?.message || e}`)
+    ok(`브라우저 → ${side === 'right' ? '오른쪽' : '왼쪽'} 절반 (${width}x${a.h})`)
+    return a
+  } catch (e) { info(`브라우저 배치 실패(무시): ${e?.message || e}`); return null }
+}
+
+/** 지갑은 브라우저와 같은 쪽 절반 한가운데에 정사각형으로. 반대쪽은 비워 둔다. */
+async function placeWallet(wallet, area, side) {
+  if (!area) return
+  try {
+    const halfW = Math.floor(area.w / 2)
+    const originX = side === 'right' ? area.x + halfW : area.x
+    const size = Math.max(560, Math.min(halfW, area.h) - MARGIN * 2)
+    const x = Math.round(originX + (halfW - size) / 2)
+    const y = Math.round(area.y + (area.h - size) / 2)
+    const done = await wallet.evaluate(
+      (b) => window.ipcRenderer?.windowSetBounds?.(b) ?? false,
+      { x, y, width: size, height: size },
+    )
+    if (done === false) info('지갑 창 배치 API 가 없습니다 — 앱을 다시 띄우면 적용됩니다.')
+    else ok(`지갑 → 같은 절반 중앙 정사각형 (${size}x${size})`)
+  } catch (e) { info(`지갑 배치 실패(무시): ${e?.message || e}`) }
+}
+
+// ── 지갑 렌더러 붙기 ─────────────────────────────────────────────────
+async function attachWallet() {
+  const browser = await chromium.connectOverCDP(CDP)
+  for (const p of browser.contexts().flatMap((c) => c.pages())) {
+    const isWallet = await p.evaluate(() => typeof window.ipcRenderer !== 'undefined').catch(() => false)
+    if (isWallet) return p
   }
+  fail('지갑 렌더러를 찾지 못했습니다. 지갑 창이 열려 있는지 확인하세요.')
+}
+
+/** 지갑 좌측 메뉴 이동 — 있으면 누르고, 없으면 조용히 넘어간다(시연 연출용). */
+async function walletNav(wallet, name) {
+  try {
+    const el = wallet.getByText(name, { exact: true }).first()
+    await el.waitFor({ state: 'visible', timeout: 4000 })
+    await click(wallet, el, `지갑 메뉴 · ${name}`)
+    await wallet.waitForTimeout(700)
+  } catch { /* 메뉴 구조가 다르면 넘어간다 */ }
 }
 
 // ── 본편 ─────────────────────────────────────────────────────────────
 async function main() {
   const ids = await preflight()
-  if (CHECK_ONLY) { console.log('\n사전 점검만 수행했습니다 (--check).\n'); return }
+  if (CHECK_ONLY) { console.log(`${NL}사전 점검만 수행했습니다 (--check).${NL}`); return }
 
   step('지갑 렌더러에 붙는 중')
-  const { page: wallet } = await attachWallet()
+  const wallet = await attachWallet()
+  await overlay(wallet)
   ok(`지갑 창 연결됨 — ${await wallet.title()}`)
 
   step('브라우저를 띄우고 확장을 싣는 중')
   const profile = path.join(os.tmpdir(), `cnu-demo-profile-${Date.now()}`)
   const ctx = await chromium.launchPersistentContext(profile, {
-    channel: 'chrome',
-    headless: false,
-    viewport: null,
-    slowMo: SLOW,
+    // 설치된 Chrome 은 137 부터 --load-extension 을 없앴다(현재 152). 확장을 실으려면
+    // Playwright 가 받아 둔 Chromium 을 쓴다 — channel 을 지정하지 않으면 그쪽이다.
+    headless: false, viewport: null, slowMo: SLOW,
     args: [
       `--disable-extensions-except=${EXT_DIST}`,
       `--load-extension=${EXT_DIST}`,
@@ -176,78 +260,99 @@ async function main() {
       '--no-first-run',
     ],
   })
+  await ctx.addInitScript(OVERLAY) // 페이지가 바뀌어도 커서·자막이 유지된다
 
-  // 서비스워커가 뜨면 그 URL 에서 확장 ID 를 읽는다.
   let sw = ctx.serviceWorkers()[0]
   if (!sw) sw = await ctx.waitForEvent('serviceworker', { timeout: 15000 }).catch(() => null)
   const extId = sw ? new URL(sw.url()).host : null
   if (extId) {
     ok(`확장 로드됨 — ${extId}`)
     if (ids && !ids.includes(extId)) {
-      info(`⚠ 등록된 ID(${ids.join(', ')})와 다릅니다. 네이티브 메시징이 거부될 수 있습니다.`)
-      info(`   cd wallet/desktop && yarn register:host ${extId}`)
+      info(`⚠ 등록된 ID 와 다릅니다 — cd wallet/desktop && yarn register:host ${extId}`)
     }
   }
 
   const page = ctx.pages()[0] ?? (await ctx.newPage())
-  if (HALF) await placeHalf(ctx, page, HALF)
+  let area = null
+  if (HALF) { area = await placeBrowser(ctx, page, HALF); await placeWallet(wallet, area, HALF) }
   const stage = [page, wallet]
 
+  step('지갑을 둘러본다')
+  await focus('wallet', page, wallet)
+  await say([wallet], '지갑에 보관된 증명서를 확인합니다.')
+  await walletNav(wallet, '증명서 (VC)')
+
   step('플랫폼 메인 화면')
+  await focus('browser', page, wallet)
   await page.goto(PLATFORM, { waitUntil: 'domcontentloaded' })
+  await overlay(page)
   await say([page], '메타버스 플랫폼에 접속했습니다.')
-  await page.waitForTimeout(900)
+  await page.waitForTimeout(1000)
 
   step('인증토큰 발급 화면으로 이동')
-  await page.click('a[href="/platform/pass.html"]')
+  await click(page, page.getByRole('link', { name: /인증토큰 발급받기/ }), '인증토큰 발급받기')
   await page.waitForLoadState('domcontentloaded')
+  await overlay(page)
   await say([page], '입장하려는 공간을 고릅니다.')
 
-  await page.selectOption('#zone', SCENARIO)
-  await page.waitForTimeout(600)
+  const zone = page.locator('#zone')
+  await click(page, zone, '공간 선택')
+  await zone.selectOption(SCENARIO)
+  await page.waitForTimeout(700)
 
   step('지갑에서 아바타 주소 가져오기 (확장 경유)')
   await say([page], '브라우저 확장을 통해 지갑의 계정 주소를 가져옵니다.')
   await page.waitForSelector('#connect:not([hidden])', { timeout: 20000 })
-  await page.click('#connect')
-  await page.waitForFunction(() => /^0x[0-9a-fA-F]{40}$/.test(document.querySelector('#addr').value), null, { timeout: 30000 })
+  await click(page, '#connect', '지갑에서 가져오기')
+  await page.waitForFunction(
+    () => /^0x[0-9a-fA-F]{40}$/.test(document.querySelector('#addr').value),
+    null, { timeout: 30000 },
+  )
   const avatar = await page.inputValue('#addr')
   ok(`아바타 주소 ${avatar}`)
 
+  // 조회가 끝나기 전에 읽으면 "확인 중…" 이 그대로 남는다. 결론이 날 때까지 기다린다.
+  await page.waitForFunction(
+    () => !/확인 중/.test(document.querySelector('#status')?.textContent || '확인 중'),
+    null, { timeout: 30000 },
+  ).catch(() => {})
   const before = (await page.textContent('#status'))?.trim()
-  info(`현재 상태: ${before}`)
   await say([page], `현재 상태 — ${before}`)
-  await page.waitForTimeout(1200)
+  await page.waitForTimeout(1600)
 
   step('발급 요청을 만들어 지갑으로 보내기')
   await say(stage, '플랫폼이 발급 요청을 만들고, 확장이 그것을 데스크톱 지갑으로 나릅니다.')
-  await page.click('#send')
+  await click(page, '#send', '지갑으로 바로 보내기')
 
   step('지갑에서 요청 승인')
+  await focus('wallet', page, wallet)
   await say([wallet], '지갑이 요청을 컨트랙트에 직접 확인한 뒤 승인 창을 띄웁니다.')
   const approve = wallet.getByRole('button', { name: /승인.*발급받기/ })
   await approve.waitFor({ state: 'visible', timeout: 60000 })
   ok('승인 창이 떴습니다')
-  await wallet.waitForTimeout(1500) // 사용자가 내용을 볼 시간
+  await wallet.waitForTimeout(2000) // 내용을 볼 시간
   await say([wallet], '승인합니다. 영지식 증명이 만들어져 온체인에 제출됩니다.')
-  await approve.click()
+  await click(wallet, approve, '승인 · 발급받기')
 
   step('증명 생성 · 온체인 발급 (수십 초)')
   await say(stage, '영지식 증명을 만들고 Sepolia 에 제출하는 중입니다…')
-  const result = wallet.getByText('인증토큰 발급 완료')
-  await result.waitFor({ state: 'visible', timeout: 240000 })
+  await wallet.getByText('인증토큰 발급 완료').waitFor({ state: 'visible', timeout: 240000 })
   ok('발급 완료 창')
 
   const detail = await wallet.evaluate(() => {
     const t = document.body.innerText
-    const tx = t.match(/0x[0-9a-fA-F]{64}/)
-    const id = t.match(/토큰 ID:\s*(\S+)/)
-    return { txHash: tx?.[0] ?? null, tokenId: id?.[1] ?? null }
+    return { txHash: t.match(/0x[0-9a-fA-F]{64}/)?.[0] ?? null, tokenId: t.match(/토큰 ID:\s*(\S+)/)?.[1] ?? null }
   })
   if (detail.tokenId) ok(`토큰 ID ${detail.tokenId}`)
   if (detail.txHash) ok(`트랜잭션 ${detail.txHash}`)
 
+  step('지갑에서 발급된 인증토큰 확인')
+  await say([wallet], '발급된 인증토큰을 지갑에서 확인합니다.')
+  await click(wallet, wallet.getByRole('button', { name: '인증토큰 보기' }), '인증토큰 보기').catch(() => {})
+  await wallet.waitForTimeout(1500)
+
   step('플랫폼이 체인을 조회해 입장 판정')
+  await focus('browser', page, wallet)
   await say([page], '플랫폼은 지갑의 말을 믿지 않고 컨트랙트에 직접 물어 확인합니다.')
   await page.waitForFunction(
     (want) => (document.querySelector('#status')?.textContent || '').includes(want),
@@ -258,7 +363,8 @@ async function main() {
   ok(`상태: ${after}`)
   await say([page], `${after} — 시연 완료`)
 
-  console.log(`\n${'─'.repeat(58)}`)
+  const line = '─'.repeat(58)
+  console.log(`${NL}${line}`)
   console.log(`  시나리오   ${ZONE[SCENARIO].label} (${SCENARIO})`)
   console.log(`  아바타     ${avatar}`)
   console.log(`  이전 상태  ${before}`)
@@ -266,7 +372,7 @@ async function main() {
   if (detail.tokenId) console.log(`  토큰 ID    ${detail.tokenId}`)
   if (detail.txHash) console.log(`  트랜잭션   https://sepolia.etherscan.io/tx/${detail.txHash}`)
   console.log(`  소요       ${((Date.now() - t0) / 1000).toFixed(1)}초`)
-  console.log(`${'─'.repeat(58)}\n`)
+  console.log(`${line}${NL}`)
 
   if (!has('keep')) {
     info('20초 뒤 브라우저를 닫습니다 (--keep 으로 열어 둘 수 있습니다).')
@@ -277,7 +383,4 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error(`\n✗ ${e?.message || e}\n`)
-  process.exit(1)
-})
+main().catch((e) => { console.error(`${NL}✗ ${e?.message || e}${NL}`); process.exit(1) })

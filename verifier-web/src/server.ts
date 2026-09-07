@@ -7,7 +7,8 @@ import QRCode from 'qrcode';
 import { createPassRequest, isScenario, scenarioLabel } from './pass/passRequest';
 
 const app = express();
-const PORT = process.env.PORT || 20252;
+// 기본 20260. 20252 는 cnu-issuer-web 이 쓰므로 겹치면 안 된다(predev 도 20260 을 비운다).
+const PORT = process.env.PORT || 20260;
 
 app.use(cors());
 app.use(express.json());

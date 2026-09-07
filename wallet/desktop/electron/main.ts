@@ -126,6 +126,26 @@ ipcMain.handle('window:toggle-maximize', () => {
   }
 })
 
+// 시연 중 조작 대상이 항상 위에 있도록 창을 앞으로 가져온다.
+ipcMain.handle('window:focus', () => {
+  if (!win) return false
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.moveTop()
+  win.focus()
+  return true
+})
+
+// 시연 녹화용 창 배치. 최대화 상태에서는 setBounds 가 먹지 않으므로 먼저 푼다.
+ipcMain.handle('window:set-bounds', (_e, b: { x: number; y: number; width: number; height: number }) => {
+  if (!win) return false
+  if (win.isMaximized()) win.unmaximize()
+  win.setBounds(b)
+  win.show()
+  win.focus()
+  return true
+})
+
 ipcMain.handle('window:is-maximized', () => {
   return win ? win.isMaximized() : false
 })

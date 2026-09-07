@@ -32,5 +32,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   windowMinimize: () => ipcRenderer.invoke('window:minimize'),
   windowToggleMaximize: () => ipcRenderer.invoke('window:toggle-maximize'),
   windowIsMaximized: () => ipcRenderer.invoke('window:is-maximized'),
+  windowSetBounds: (b: unknown) => ipcRenderer.invoke('window:set-bounds', b),
+  windowFocus: () => ipcRenderer.invoke('window:focus'),
   windowClose: () => ipcRenderer.invoke('window:close'),
 })

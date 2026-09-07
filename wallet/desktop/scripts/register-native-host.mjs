@@ -73,7 +73,11 @@ fs.writeFileSync(manifestPath, JSON.stringify({
 console.log('manifest 작성:', manifestPath)
 
 if (process.platform === 'win32') {
-  for (const key of new Set(found.map(f => f.browser.key))) {
+  const keys = new Set(found.map(f => f.browser.key))
+  // 시연 자동화는 Playwright 의 Chromium 을 쓴다(설치된 Chrome 은 137 부터 --load-extension 없음).
+  // 압축해제 확장 ID 는 경로에서 나오므로 같은 매니페스트가 그대로 통한다.
+  keys.add(['HKCU', 'Software', 'Chromium', 'NativeMessagingHosts', 'com.cnu.didwallet'].join('\\'))
+  for (const key of keys) {
     execSync(`reg add "${key}" /ve /t REG_SZ /d "${manifestPath}" /f`, { stdio: 'inherit' })
     console.log('등록:', key)
   }

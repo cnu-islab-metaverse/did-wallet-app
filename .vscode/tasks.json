@@ -12,13 +12,19 @@
       "presentation": { "reveal": "always", "panel": "new", "group": "wallet" }
     },
     {
-      "label": "Wallet (demo)",
+      "label": "Wallet (CDP)",
       "type": "shell",
       "command": "npm run dev:desktop:debug",
       "options": { "cwd": "${workspaceFolder}" },
       "isBackground": true,
       "problemMatcher": [],
       "presentation": { "reveal": "always", "panel": "new", "group": "wallet" }
+    },
+    {
+      "label": "Wallet (demo)",
+      "dependsOn": ["Wallet (CDP)", "Verifier"],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
     },
     {
       "label": "Demo (scenario run)",
